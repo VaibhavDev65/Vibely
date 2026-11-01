@@ -51,6 +51,12 @@ def check_auth():
         else:
             return redirect(url_for('login'))
 
+@app.route('/')
+def index():
+    if 'user_id' in session:
+        return redirect(url_for('home'))
+    return redirect(url_for('login'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
