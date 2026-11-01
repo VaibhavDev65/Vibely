@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibely - Sign In / Create Account</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0b0b0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .gradient-title {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b, #8a2387, #e94057, #f27121);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+            transition: opacity 0.3s ease, transform 0.2s ease;
+        }
+        .btn-gradient:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .glass-card {
+            background: rgba(18, 18, 24, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header / Branding Section -->
+    <div class="text-center mb-6 px-2">
+        <span class="inline-block px-3 py-1 mb-3 text-xs font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-full">
+            ✨ Text-Only Social Network
+        </span>
+        <h1 class="text-3xl md:text-5xl font-bold tracking-tight gradient-title mb-2">Vibely</h1>
+        <p class="text-gray-400 text-xs md:text-sm">Share your thoughts, perspectives & vibes in pure text.<br>Powered by MySQL & real-time WebSockets.</p>
+    </div>
+
+    <!-- Cookie Alert Banner -->
+    <div class="w-full max-w-md mb-6 p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl text-xs text-indigo-200 flex items-start gap-2.5 shadow-lg">
+        <span class="text-base"><i class="fa-solid fa-cookie-bite"></i></span>
+        <div>
+            <strong class="text-indigo-300 font-semibold">Cookie Session Enabled:</strong> On successful login, your session ID will be stored in your browser cookies (<code class="text-indigo-400 bg-indigo-900/50 px-1 py-0.5 rounded">vibely_session_id</code>) for direct auto-login on future visits.
+        </div>
+    </div>
+
+    <!-- Main Auth Box -->
+    <div class="w-full max-w-md glass-card rounded-2xl p-5 md:p-8">
+        
+        <!-- Tab Switcher Header -->
+        <div class="flex border-b border-gray-800 mb-6 relative">
+            <button onclick="switchTab('signin')" id="tab-signin" class="w-1/2 pb-3 text-sm font-semibold text-center text-indigo-400 transition">
+                Login
+            </button>
+            <button onclick="switchTab('signup')" id="tab-signup" class="w-1/2 pb-3 text-sm font-semibold text-center text-gray-400 transition hover:text-gray-200">
+                Sign Up
+            </button>
+            <div id="tab-indicator" class="absolute bottom-0 left-0 w-1/2 h-0.5 bg-gradient-to-r from-indigo-500 to-pink-500 transition-all duration-300"></div>
+        </div>
+
+        <!-- SIGN IN FORM -->
+        <form id="form-signin" action="/login" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">Username or Email</label>
+                <input type="text" name="username" placeholder="e.g. alex_admin" required
+                    class="w-full px-4 py-3 rounded-xl bg-gray-900/80 border border-gray-700/80 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+            </div>
+
+            <div>
+                <div class="flex justify-between items-center mb-1.5">
+                    <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">Password</label>
+                    <a href="/forgot-password" class="text-xs text-indigo-400 hover:underline">Forgot Password?</a>
+                </div>
+                <input type="password" name="password" placeholder="Enter your password" required
+                    class="w-full px-4 py-3 rounded-xl bg-gray-900/80 border border-gray-700/80 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+            </div>
+
+            <button type="submit" class="w-full py-3 px-4 rounded-xl text-white font-semibold text-sm btn-gradient shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 mt-2">
+                <span><i class="fa-solid fa-key"></i></span> Log In
+            </button>
+        </form>
+
+        <!-- CREATE ACCOUNT FORM -->
+        <form id="form-signup" action="/signup" method="POST" class="space-y-4 hidden">
+            <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">Choose Username</label>
+                <input type="text" name="username" placeholder="e.g. vibely_coder" required
+                    class="w-full px-4 py-3 rounded-xl bg-gray-900/80 border border-gray-700/80 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">Email Address</label>
+                <input type="email" name="email" placeholder="alex@example.com" required
+                    class="w-full px-4 py-3 rounded-xl bg-gray-900/80 border border-gray-700/80 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-gray-300 mb-1.5 uppercase tracking-wider">Password</label>
+                <input type="password" name="password" placeholder="Create strong password" required
+                    class="w-full px-4 py-3 rounded-xl bg-gray-900/80 border border-gray-700/80 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-pink-500 focus:ring-1 focus:ring-pink-500 transition">
+            </div>
+
+            <button type="submit" class="w-full py-3 px-4 rounded-xl text-white font-semibold text-sm btn-gradient shadow-lg shadow-pink-500/20 flex items-center justify-center gap-2 mt-2">
+                <span><i class="fa-solid fa-rocket"></i></span> Create Account & Join
+            </button>
+        </form>
+
+    </div>
+
+    <!-- JavaScript to handle Tab Switching -->
+    <script>
+        function switchTab(tab) {
+            const signinForm = document.getElementById('form-signin');
+            const signupForm = document.getElementById('form-signup');
+            const tabSignin = document.getElementById('tab-signin');
+            const tabSignup = document.getElementById('tab-signup');
+            const indicator = document.getElementById('tab-indicator');
+
+            if (tab === 'signin') {
+                signinForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                
+                tabSignin.classList.add('text-indigo-400');
+                tabSignin.classList.remove('text-gray-400');
+                tabSignup.classList.add('text-gray-400');
+                tabSignup.classList.remove('text-indigo-400');
+                
+                indicator.style.transform = 'translateX(0%)';
+            } else {
+                signupForm.classList.remove('hidden');
+                signinForm.classList.add('hidden');
+                
+                tabSignup.classList.add('text-indigo-400');
+                tabSignup.classList.remove('text-gray-400');
+                tabSignin.classList.add('text-gray-400');
+                tabSignin.classList.remove('text-indigo-400');
+                
+                indicator.style.transform = 'translateX(100%)';
+            }
+        }
+    </script>
+</body>
+
+</html>

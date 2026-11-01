@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibely - Settings</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+        * { font-family: 'Poppins', sans-serif; }
+        body { background-color: #0b0b0f; color: #fff; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-start p-4 md:p-8">
+
+    <!-- BACK TO PROFILE HEADER -->
+    <div class="max-w-[630px] w-full mb-4 flex items-center justify-between">
+        <a href="/app/{{ session.get('username') }}" class="text-sm text-indigo-400 hover:underline flex items-center gap-2">
+            <i class="fa-solid fa-arrow-left"></i> Back to Profile
+        </a>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div class="max-w-[630px] w-full bg-[#121216] border border-gray-800 rounded-xl overflow-hidden shadow-lg p-6">
+        <h1 class="text-xl font-bold mb-6 flex items-center gap-2">
+            <i class="fa-solid fa-gear text-indigo-500"></i> Settings & Privacy
+        </h1>
+
+        <div class="space-y-3">
+            <!-- 1. About Account Button -->
+            <button type="button" onclick="toggleAboutModal()" class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-circle-info text-indigo-400 text-lg"></i>
+                    <span class="text-sm font-medium">About Account</span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+            </button>
+
+            <!-- 2. Edit Account Button (Opens Dialog Box Directly) -->
+            <button type="button" onclick="toggleEditModal()" class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-user-pen text-indigo-400 text-lg"></i>
+                    <span class="text-sm font-medium">Edit Account</span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+            </button>
+
+            <!-- 3. Customer Care Button -->
+            <button type="button" onclick="alert('For support, contact admin at support@vibely.com')" class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-headset text-indigo-400 text-lg"></i>
+                    <span class="text-sm font-medium">Customer Care</span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
+            </button>
+
+            <!-- 4. Logout Button (Always at the end) -->
+            <a href="/logout" class="w-full flex items-center justify-between p-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition text-red-400">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-right-from-bracket text-lg"></i>
+                    <span class="text-sm font-medium">Logout</span>
+                </div>
+                <i class="fa-solid fa-chevron-right text-red-400 text-xs"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- ABOUT ACCOUNT DIALOG / MODAL -->
+    <div id="about-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-6 w-full max-w-md relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-base">Account Information</h3>
+                <button type="button" onclick="toggleAboutModal()" class="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+            <div class="space-y-3 text-sm text-gray-300">
+                <p><strong>Username:</strong> {{ current_user.username if current_user.username else 'None' }}</p>
+                <p><strong>Name:</strong> {{ current_user.name if current_user.name else 'None' }}</p>
+                <p><strong>Date of Birth (DOB):</strong> {{ current_user.dob if current_user.dob else 'None' }}</p>
+                <p><strong>Bio:</strong> {{ current_user.bio if current_user.bio else 'None' }}</p>
+                <p><strong>Verified Status:</strong> {{ 'Verified' if current_user.verified else 'None' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT DETAILS DIALOG / MODAL -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-6 w-full max-w-md relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-base">Edit Account Details</h3>
+                <button type="button" onclick="toggleEditModal()" class="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+
+            <form id="edit-profile-form" onsubmit="updateProfile(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Name</label>
+                    <input type="text" id="edit-name" value="{{ current_user.name if current_user.name else '' }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Username</label>
+                    <input type="text" id="edit-username" value="{{ current_user.username }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Bio</label>
+                    <textarea id="edit-bio" rows="3"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none resize-none">{{ current_user.bio if current_user.bio else '' }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date of Birth (DOB)</label>
+                    <input type="date" id="edit-dob" value="{{ current_user.dob if current_user.dob else '' }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Gender</label>
+                    <select id="edit-gender"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+                        <option value="male" {% if current_user.gender == 'male' %}selected{% endif %}>Male</option>
+                        <option value="female" {% if current_user.gender == 'female' %}selected{% endif %}>Female</option>
+                        <option value="others" {% if current_user.gender == 'others' or not current_user.gender %}selected{% endif %}>Prefer not to say / Others</option>
+                    </select>
+                </div>
+                <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-semibold transition mt-2">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleAboutModal() {
+            document.getElementById('about-modal').classList.toggle('hidden');
+        }
+
+        function toggleEditModal() {
+            document.getElementById('edit-modal').classList.toggle('hidden');
+        }
+
+        function updateProfile(e) {
+            e.preventDefault();
+            const name = document.getElementById('edit-name').value;
+            const username = document.getElementById('edit-username').value;
+            const bio = document.getElementById('edit-bio').value;
+            const dob = document.getElementById('edit-dob').value;
+            const gender = document.getElementById('edit-gender').value;
+
+            fetch('/api/update_profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, username, bio, dob, gender })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Update ke baad changes dikhane ke liye page reload hoga
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Failed to update profile');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ post.username }} • Vibely Post</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #0b0b0f;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col items-center justify-start p-4 md:p-8">
+
+    <div class="max-w-[630px] w-full mb-4 flex items-center justify-between">
+        <a href="/home" class="text-sm text-indigo-400 hover:underline flex items-center gap-2">
+            <i class="fa-solid fa-arrow-left"></i> Back to Feed
+        </a>
+    </div>
+
+    <div class="max-w-[630px] w-full bg-[#121216] border border-gray-800 rounded-xl overflow-hidden shadow-lg">
+        <!-- Post Header -->
+        <div class="p-3 md:p-4 flex items-center justify-between border-b border-gray-800">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
+                    {{ post.username[0] | upper }}
+                </div>
+                <span class="font-semibold text-sm flex items-center gap-1">
+                    {{ post.username }}
+                    {% if post.verified %}
+                    <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}" class="w-4 h-4 inline"
+                        alt="Verified">
+                    {% endif %}
+                </span>
+            </div>
+            <span class="text-xs text-gray-500">{{ post.timestamp }}</span>
+        </div>
+
+        <!-- Post Content -->
+        <div class="p-4 md:p-6 text-sm md:text-base text-gray-200 border-b border-gray-800 break-words">
+            {{ post.content }}
+        </div>
+
+        <!-- Like Button Bar -->
+        <div class="p-3 border-t border-gray-800 flex items-center gap-6 text-sm text-gray-400">
+            <button onclick="toggleLike('{{ post.id }}')" id="like-btn-{{ post.id }}"
+                class="flex items-center gap-2 hover:text-rose-500 transition cursor-pointer">
+                <i class="fa-solid fa-heart text-lg" id="like-icon-{{ post.id }}"></i>
+                <span id="like-count-{{ post.id }}">{{ post.like_count }}</span> likes
+            </button>
+            <span class="flex items-center gap-2">
+                <i class="fa-solid fa-comment text-lg"></i> Comments
+            </span>
+        </div>
+
+        <!-- Comments Section -->
+        <div class="p-4 bg-[#0e0e12]">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Comments</h3>
+
+            <!-- COMMENT INPUT BOX AT THE TOP -->
+            <div class="mb-4">
+                <form onsubmit="addComment(event, '{{ post.id }}')" class="flex gap-2">
+                    <input type="text" id="comment-input" placeholder="Add a comment..." required
+                        class="flex-1 px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition shrink-0">Post</button>
+                </form>
+            </div>
+
+            <!-- COMMENTS LIST -->
+            <div class="space-y-3 max-h-60 overflow-y-auto">
+                {% if comments %}
+                {% for comment in comments %}
+                <div class="flex items-start gap-2.5 bg-gray-900/60 p-3 rounded-lg border border-gray-800/60">
+                    <div
+                        class="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center font-bold text-xs shrink-0">
+                        {{ comment.username[0] | upper }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-1">
+                            <span class="font-semibold text-xs text-gray-200">{{ comment.username }}</span>
+                            {% if comment.verified %}
+                            <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}"
+                                class="w-3 h-3 inline" alt="Verified">
+                            {% endif %}
+                        </div>
+                        <p class="text-xs text-gray-300 mt-1 break-words">{{ comment.comment_text }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-xs text-gray-500 text-center py-4">No comments yet. Be the first to comment!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</body>
+<script>
+    function toggleLike(postId) {
+        const icon = document.getElementById(`like-icon-${postId}`);
+        const countSpan = document.getElementById(`like-count-${postId}`);
+
+        fetch('/api/like', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    countSpan.innerText = data.like_count;
+                    if (data.liked) {
+                        icon.classList.add('text-rose-500');
+                    } else {
+                        icon.classList.remove('text-rose-500');
+                    }
+                }
+            });
+    }
+
+    function addComment(e, postId) {
+        e.preventDefault();
+        const input = document.getElementById('comment-input');
+        const comment_text = input.value.trim();
+        if (!comment_text) return;
+
+        fetch('/api/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: postId, comment_text: comment_text })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Failed to add comment');
+            }
+        });
+    }
+</script>
+
+</html>

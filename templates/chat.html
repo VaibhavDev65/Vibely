@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibely - Direct Messages</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #0b0b0f;
+            color: #fff;
+        }
+
+        .glass-sidebar {
+            background: rgba(18, 18, 24, 0.95);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .chat-bg {
+            background-color: #121216;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex overflow-hidden">
+
+    <!-- LEFT SIDEBAR: Active Conversations (Full width on mobile when no chat active, 30% on desktop) -->
+    <div id="sidebar-container" class="w-full md:w-[35%] lg:w-[30%] glass-sidebar flex flex-col h-full relative z-10">
+
+        <!-- User Profile Header -->
+        <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+            <div class="flex items-center gap-2 cursor-pointer">
+                <h1 class="font-bold text-lg text-white truncate max-w-[150px]">{{ current_user.username }}</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/home" title="Home Feed" class="text-gray-300 hover:text-white p-1">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                        </path>
+                    </svg>
+                </a>
+                <button onclick="toggleNewChatModal()" title="New Message" class="text-gray-300 hover:text-white p-1">
+                    <svg aria-label="New message" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path
+                            d="M12.202 3.203H5.25a3 3 0 0 0-3 3V18.75a3 3 0 0 0 3 3h12.75a3 3 0 0 0 3-3V11.5a1 1 0 1 0-2 0v7.25a1 1 0 0 1-1 1H5.25a1 1 0 0 1-1-1V6.25a1 1 0 0 1 1-1h6.952a1 1 0 0 0 0-2Z">
+                        </path>
+                        <path
+                            d="M22.832 3.449a3.022 3.022 0 0 0-4.28 0l-9.11 9.11a1.05 1.05 0 0 0-.265.467l-1.02 4.417a1.05 1.05 0 0 0 1.272 1.272l4.417-1.02a1.05 1.05 0 0 0 .467-.265l9.11-9.11a3.022 3.022 0 0 0 0-4.28Zm-3.568 2.132l-7.79 7.79-.395 1.71 1.71-.395 7.79-7.79a1.022 1.022 0 0 1 1.446 0 .998.998 0 0 1 0 1.446Z">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="p-3 border-b border-gray-800">
+            <input type="text" id="chat-search" placeholder="Search messages..." onkeyup="filterChats()"
+                class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-gray-600">
+        </div>
+
+        <!-- Section Title -->
+        <div class="px-4 py-2 flex justify-between items-center">
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Messages</span>
+        </div>
+
+        <!-- Chatted Accounts List -->
+        <div class="overflow-y-auto flex-1 divide-y divide-gray-900/50" id="chat-list">
+            {% if chat_users %}
+            {% for acc in chat_users %}
+            <div onclick="openChat('{{ acc.id }}', '{{ acc.username }}')"
+                class="all-user-card flex items-center justify-between p-3.5 hover:bg-gray-800/60 cursor-pointer transition"
+                data-username="{{ acc.username | lower }}" id="user-item-{{ acc.id }}">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                        {{ acc.username[0] | upper }}
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-200 flex items-center gap-1">
+                            {{ acc.username }}
+                            {% if acc.verified %}
+                            <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}"
+                                class="w-3.5 h-3.5 inline" alt="Verified">
+                            {% endif %}
+                        </h3>
+                    </div>
+                </div>
+                <span
+                    class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0">Message</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="p-6 text-center text-gray-500 text-sm mt-10">
+                <p>No conversations yet.</p>
+                <p class="text-xs text-indigo-400 mt-2 cursor-pointer" onclick="toggleNewChatModal()">Start a new chat +
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Logout Footer -->
+        <div class="p-3 border-t border-gray-800">
+            <a href="/logout"
+                class="block text-center text-xs text-red-400 hover:text-red-300 py-2 bg-red-500/10 rounded-lg border border-red-500/20 transition">Log
+                Out</a>
+        </div>
+
+        <!-- NEW CHAT MODAL -->
+        <div id="new-chat-modal" class="absolute inset-0 bg-[#0b0b0f]/95 z-50 flex flex-col hidden">
+            <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+                <h3 class="font-semibold text-sm">New Message</h3>
+                <button onclick="toggleNewChatModal()"
+                    class="text-gray-400 hover:text-white text-sm font-bold p-1">✕</button>
+            </div>
+            <div class="p-3 border-b border-gray-800">
+                <input type="text" id="modal-search" placeholder="Search all users..." onkeyup="filterAllUsers()"
+                    class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none">
+            </div>
+            <div class="overflow-y-auto flex-1 divide-y divide-gray-900" id="all-users-list">
+                {% for acc in all_users %}
+                <div onclick="openChat('{{ acc.id }}', '{{ acc.username }}'); toggleNewChatModal();"
+                    class="all-user-card flex items-center gap-3 p-3.5 hover:bg-gray-800/60 cursor-pointer transition"
+                    data-username="{{ acc.username | lower }}">
+                    <div
+                        class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                        {{ acc.username[0] | upper }}
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-gray-200">{{ acc.username }}</h3>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT ACTIVE CHAT WINDOW (Hidden on mobile by default until a chat is opened) -->
+    <div class="hidden md:flex flex-1 flex-col h-full chat-bg" id="chat-container">
+        <!-- Initial State -->
+        <div id="no-chat-selected"
+            class="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500">
+            <div class="w-20 h-20 border-2 border-gray-700 rounded-full flex items-center justify-center mb-4">
+                <svg aria-label="Icon" class="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path
+                        d="M12.003 2.001a9.997 9.997 0 1 0 9.997 9.997 9.999 9.999 0 0 0-9.997-9.997Zm0 1.8A8.197 8.197 0 1 1 3.806 12a8.2 8.2 0 0 1 8.197-8.199Zm1.1 4.399v5.399a.9.9 0 0 1-1.8 0V8.2a.9.9 0 0 1 1.8 0Zm0 7.2v1.8a.9.9 0 1 1-1.8 0v-1.8a.9.9 0 1 1 1.8 0Z">
+                    </path>
+                </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-gray-300">Your Messages</h2>
+            <p class="text-sm mb-4">Send private photos and messages to a friend.</p>
+            <button onclick="toggleNewChatModal()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Send
+                Message</button>
+        </div>
+
+        <!-- Active Chat Area -->
+        <div id="active-chat-area" class="flex-1 flex flex-col hidden h-full">
+            <!-- Chat Header -->
+            <div class="p-4 border-b border-gray-800 flex items-center gap-3 bg-[#121216]">
+                <!-- Back Button for Mobile -->
+                <button onclick="closeActiveChatMobile()" class="md:hidden text-gray-400 hover:text-white mr-2">
+                    <i class="fa-solid fa-arrow-left text-lg"></i>
+                </button>
+                <div id="active-user-avatar"
+                    class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">A
+                </div>
+                <h2 id="active-username" class="font-semibold text-sm text-white truncate">Username</h2>
+            </div>
+
+            <!-- Messages Scroll Box -->
+            <div id="messages-box" class="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col">
+                <!-- Messages loaded dynamically -->
+            </div>
+
+            <!-- Message Input Form -->
+            <div class="p-3 md:p-4 border-t border-gray-800 bg-[#121216]">
+                <form id="send-form" onsubmit="sendMessage(event)" class="flex gap-2">
+                    <input type="text" id="message-input" placeholder="Message..." autocomplete="off"
+                        class="flex-1 px-4 py-3 rounded-full bg-gray-900 border border-gray-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+                    <button type="submit"
+                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold transition shrink-0">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        let activeReceiverId = null;
+        let pollingInterval = null;
+
+        function toggleNewChatModal() {
+            const modal = document.getElementById('new-chat-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function filterChats() {
+            const query = document.getElementById('chat-search').value.toLowerCase();
+            document.querySelectorAll('.all-user-card').forEach(card => {
+                const username = card.getAttribute('data-username');
+                if (username) {
+                    card.style.display = username.includes(query) ? 'flex' : 'none';
+                }
+            });
+        }
+
+        function filterAllUsers() {
+            const query = document.getElementById('modal-search').value.toLowerCase();
+            document.querySelectorAll('#all-users-list .all-user-card').forEach(card => {
+                const username = card.getAttribute('data-username');
+                card.style.display = username.includes(query) ? 'flex' : 'none';
+            });
+        }
+
+        function openChat(userId, username) {
+            activeReceiverId = userId;
+
+            // Responsive view handling for mobile
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar-container').classList.add('hidden');
+                document.getElementById('chat-container').classList.remove('hidden');
+                document.getElementById('chat-container').classList.add('flex', 'w-full');
+            }
+
+            document.getElementById('no-chat-selected').classList.add('hidden');
+            document.getElementById('active-chat-area').classList.remove('hidden');
+            document.getElementById('active-username').innerText = username;
+            document.getElementById('active-user-avatar').innerText = username[0].toUpperCase();
+
+            document.querySelectorAll('.all-user-card').forEach(el => el.classList.remove('bg-gray-800/80'));
+            const activeCard = document.getElementById(`user-item-${userId}`);
+            if (activeCard) {
+                activeCard.classList.add('bg-gray-800/80');
+            }
+
+            fetchMessages();
+
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(fetchMessages, 1500);
+        }
+
+        function closeActiveChatMobile() {
+            document.getElementById('chat-container').classList.remove('flex', 'w-full');
+            document.getElementById('chat-container').classList.add('hidden');
+            document.getElementById('sidebar-container').classList.remove('hidden');
+            document.getElementById('sidebar-container').classList.add('w-full');
+            if (pollingInterval) clearInterval(pollingInterval);
+        }
+
+        function fetchMessages() {
+            if (!activeReceiverId) return;
+
+            fetch(`/api/messages/${activeReceiverId}`)
+                .then(res => res.json())
+                .then(data => {
+                    const box = document.getElementById('messages-box');
+                    box.innerHTML = '';
+
+                    if (data.length === 0) {
+                        box.innerHTML = `<div class="m-auto text-center text-gray-500 text-sm">No chats yet. Say hello! 👋</div>`;
+                        return;
+                    }
+
+                    data.forEach(msg => {
+                        const isMe = msg.sender_id != activeReceiverId;
+                        const alignClass = isMe ? 'ml-auto bg-indigo-600 text-white' : 'mr-auto bg-gray-800 text-gray-200';
+
+                        const div = document.createElement('div');
+                        div.className = `max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm ${alignClass}`;
+                        div.innerText = msg.message;
+                        box.appendChild(div);
+                    });
+                    box.scrollTop = box.scrollHeight;
+                });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const chatWithId = urlParams.get('chat_with');
+            const chatWithUsername = urlParams.get('username');
+
+            if (chatWithId && chatWithUsername) {
+                let userCard = document.getElementById(`user-item-${chatWithId}`);
+                if (!userCard) {
+                    const chatList = document.getElementById('chat-list');
+                    if (chatList && chatList.innerHTML.includes('No conversations yet')) {
+                        chatList.innerHTML = '';
+                    }
+                    const div = document.createElement('div');
+                    div.onclick = () => openChat(chatWithId, chatWithUsername);
+                    div.className = "all-user-card flex items-center justify-between p-3.5 hover:bg-gray-800/60 cursor-pointer transition";
+                    div.id = `user-item-${chatWithId}`;
+                    div.setAttribute('data-username', chatWithUsername.toLowerCase());
+                    div.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                                ${chatWithUsername[0].toUpperCase()}
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-200 truncate">${chatWithUsername}</h3>
+                            </div>
+                        </div>
+                        <span class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0">Message</span>
+                    `;
+                    if (chatList) chatList.prepend(div);
+                }
+                openChat(chatWithId, chatWithUsername);
+            }
+        });
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text || !activeReceiverId) return;
+
+            fetch('/api/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ receiver_id: activeReceiverId, message: text })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        input.value = '';
+                        fetchMessages();
+                    }
+                });
+        }
+    </script>
+</body>
+
+</html>

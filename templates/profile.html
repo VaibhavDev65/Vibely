@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile_user.username }} • Vibely Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #0b0b0f;
+            color: #fff;
+        }
+
+        .glass-sidebar {
+            background: rgba(18, 18, 24, 0.95);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-bottom-nav {
+            background: rgba(18, 18, 24, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+
+    <!-- LEFT NAVIGATION BAR (Desktop) -->
+    <div class="hidden md:flex w-[240px] glass-sidebar flex-col h-full p-4 justify-between z-20 shrink-0">
+        <div>
+            <h1
+                class="font-bold text-xl bg-gradient-to-r from-pink-500 to-indigo-500 bg-clip-text text-transparent mb-8 px-2">
+                Vibely</h1>
+            <div class="space-y-2">
+                <a href="/home" class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800"><i
+                        class="fa-solid fa-house"></i> Home</a>
+                <a href="/inbox" class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800"><i
+                        class="fa-solid fa-paper-plane"></i> Messages</a>
+                <a href="/app/{{ session.get('username') }}"
+                    class="flex items-center gap-4 p-3 rounded-lg bg-gray-800 font-semibold"><i
+                        class="fa-solid fa-user"></i> Profile</a>
+            </div>
+        </div>
+        <div class="border-t border-gray-800 pt-4">
+            <a href="/logout"
+                class="block text-center text-xs text-red-400 py-2 bg-red-500/10 rounded-lg border border-red-500/20">Log
+                Out</a>
+        </div>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION BAR -->
+    <div
+        class="md:hidden fixed bottom-0 left-0 right-0 h-16 glass-bottom-nav flex items-center justify-around px-2 z-30">
+        <a href="/home" class="text-gray-400 hover:text-white p-3 text-lg"><i class="fa-solid fa-house"></i></a>
+        <a href="/inbox" class="text-gray-400 hover:text-white p-3 text-lg"><i class="fa-solid fa-paper-plane"></i></a>
+        <a href="/app/{{ session.get('username') }}" class="text-white p-3 text-lg"><i class="fa-solid fa-user"></i></a>
+    </div>
+
+    <!-- MAIN PROFILE CONTAINER -->
+    <div class="flex-1 flex flex-col overflow-y-auto items-center pb-12 h-full">
+        <div class="max-w-[935px] w-full px-4 md:px-6 pt-6 md:pt-10">
+
+            <!-- PROFILE HEADER -->
+            <div
+                class="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-16 pb-8 md:pb-10 border-b border-gray-800 text-center md:text-left">
+                <!-- Avatar -->
+                <div
+                    class="w-28 h-28 md:w-36 md:h-36 rounded-full p-1 bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center shrink-0">
+                    <div
+                        class="w-full h-full rounded-full bg-[#0b0b0f] flex items-center justify-center font-bold text-3xl md:text-4xl text-white">
+                        {{ profile_user.username[0] | upper }}
+                    </div>
+                </div>
+
+                <!-- Info & Actions -->
+                <div class="flex-1 w-full">
+                    <div class="flex flex-col md:flex-row items-center gap-4 mb-4">
+                        <h2
+                            class="text-lg md:text-xl font-normal flex items-center justify-center gap-1.5 truncate max-w-full">
+                            {{ profile_user.username }}
+                            {% if profile_user.verified %}
+                            <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}"
+                                class="w-5 h-5 inline shrink-0" alt="Verified">
+                            {% endif %}
+                        </h2>
+
+                        <div class="flex items-center gap-2 flex-wrap justify-center">
+                            {% if is_my_profile %}
+                            <a href="/app/settings"
+                                class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                                <i class="fa-solid fa-gear"></i>
+                            </a>
+                            <a href="/home"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">Add
+                                Post</a>
+                            {% else %}
+                            <button onclick="toggleAboutModal()"
+                                class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">
+                                About Account
+                            </button>
+                            <button onclick="toggleFollow('{{ profile_user.id }}')" id="follow-btn"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-1.5 rounded-lg text-sm font-semibold transition">
+                                {{ 'Following' if is_following else 'Follow' }}
+                            </button>
+                            <a href="/inbox?chat_with={{ profile_user.id }}&username={{ profile_user.username }}"
+                                class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">Message</a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="flex justify-center md:justify-start gap-6 md:gap-8 mb-4 text-xs md:text-sm">
+                        <span><strong class="text-white">{{ post_count }}</strong> posts</span>
+                        <span><strong class="text-white">{{ follower_count }}</strong> followers</span>
+                        <span><strong class="text-white">{{ following_count }}</strong> following</span>
+                    </div>
+
+                    <!-- Bio -->
+                    <div class="text-xs md:text-sm text-gray-300 space-y-1 px-2 md:px-0">
+                        <p class="font-semibold text-white">{{ profile_user.name if profile_user.name else
+                            profile_user.username }}</p>
+                        <p class="whitespace-pre-line break-words">{{ profile_user.bio if profile_user.bio else 'No bio
+                            yet.' }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABS (Posts) -->
+            <div
+                class="flex justify-center gap-12 border-t border-gray-800 text-xs font-semibold tracking-wider text-gray-400 uppercase -mt-[1px]">
+                <div class="flex items-center gap-2 border-t border-white text-white pt-3 cursor-pointer">
+                    <span><i class="fa-solid fa-image"></i></span> Posts
+                </div>
+            </div>
+
+            <!-- POSTS GRID -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mt-4">
+                {% if posts %}
+                {% for post in posts %}
+                <div
+                    class="aspect-square bg-[#121216] border border-gray-800 rounded-lg overflow-hidden relative group cursor-pointer flex items-center justify-center p-3 md:p-4 text-center">
+                    <p class="text-xs md:text-sm text-gray-200 line-clamp-4 break-words">{{ post.content }}</p>
+                    <div
+                        class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-4 md:gap-6 text-xs md:text-sm font-semibold">
+                        <span><i class="fa-solid fa-heart"></i> 0</span>
+                        <a href="/app/feed/{{ post.id }}" class="text-white hover:underline">View</a>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="col-span-2 md:col-span-3 py-16 text-center text-gray-500 text-sm">
+                    <p class="text-3xl mb-2"><i class="fa-regular fa-camera"></i></p>
+                    <p>No posts yet.</p>
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
+    <!-- EDIT PROFILE MODAL (Only for own profile) -->
+    {% if is_my_profile %}
+    <div id="edit-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-6 w-full max-w-md relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-base">Edit Profile</h3>
+                <button onclick="toggleEditModal()" class="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+
+            <form id="edit-profile-form" onsubmit="updateProfile(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Name</label>
+                    <input type="text" id="edit-name"
+                        value="{{ profile_user.name if profile_user.name else 'Vibely Member' }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Username</label>
+                    <input type="text" id="edit-username" value="{{ profile_user.username }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none"
+                        required>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Bio</label>
+                    <textarea id="edit-bio" rows="3"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none resize-none">{{ profile_user.bio if profile_user.bio else '' }}</textarea>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Date of Birth (DOB)</label>
+                    <input type="date" id="edit-dob" value="{{ profile_user.dob if profile_user.dob else '' }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Gender</label>
+                    <select id="edit-gender"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+                        <option value="male" {% if profile_user.gender=='male' %}selected{% endif %}>Male</option>
+                        <option value="female" {% if profile_user.gender=='female' %}selected{% endif %}>Female</option>
+                        <option value="others" {% if profile_user.gender=='others' or not profile_user.gender
+                            %}selected{% endif %}>Prefer not to say / Others</option>
+                    </select>
+                </div>
+                <button type="submit"
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-semibold transition mt-2">Save
+                    Changes</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ABOUT ACCOUNT MODAL (Only when other user's profile is opened) -->
+    {% if not is_my_profile %}
+    <div id="about-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-6 w-full max-w-md relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-base">About This Account</h3>
+                <button onclick="toggleAboutModal()" class="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+            <div class="space-y-3 text-sm text-gray-300">
+                <p><strong>Username:</strong> {{ profile_user.username if profile_user.username else 'None' }}</p>
+                <p><strong>Name:</strong> {{ profile_user.name if profile_user.name else 'None' }}</p>
+                <p><strong>Date of Birth (DOB):</strong> {{ profile_user.dob if profile_user.dob else 'None' }}</p>
+                <p><strong>Bio:</strong> {{ profile_user.bio if profile_user.bio else 'None' }}</p>
+                <p><strong>Verified Status:</strong> {{ 'Verified' if profile_user.verified else 'None' }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- JAVASCRIPT -->
+    <script>
+        function toggleEditModal() {
+            const modal = document.getElementById('edit-modal');
+            if (modal) modal.classList.toggle('hidden');
+        }
+
+        function toggleAboutModal() {
+            const modal = document.getElementById('about-modal');
+            if (modal) modal.classList.toggle('hidden');
+        }
+
+        function updateProfile(e) {
+            e.preventDefault();
+            const name = document.getElementById('edit-name').value;
+            const username = document.getElementById('edit-username').value;
+            const bio = document.getElementById('edit-bio').value;
+            const dob = document.getElementById('edit-dob').value;
+            const gender = document.getElementById('edit-gender').value;
+
+            fetch('/api/update_profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, username, bio, dob, gender })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.href = `/app/${data.username}`;
+                    } else {
+                        alert(data.message || 'Failed to update profile');
+                    }
+                });
+        }
+
+        function toggleFollow(userId) {
+            fetch('/api/follow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: userId })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const btn = document.getElementById('follow-btn');
+                        if (btn.innerText === 'Follow') {
+                            btn.innerText = 'Following';
+                            btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+                            btn.classList.add('bg-gray-800', 'hover:bg-gray-700');
+                        } else {
+                            btn.innerText = 'Follow';
+                            btn.classList.remove('bg-gray-800', 'hover:bg-gray-700');
+                            btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                        }
+                    }
+                });
+        }
+    </script>
+</body>
+
+</html>

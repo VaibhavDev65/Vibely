@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibely - Home</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+        * { font-family: 'Poppins', sans-serif; }
+        body { background-color: #0b0b0f; color: #fff; }
+        .glass-sidebar { background: rgba(18, 18, 24, 0.95); border-right: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-bottom-nav { background: rgba(18, 18, 24, 0.95); backdrop-filter: blur(10px); border-top: 1px solid rgba(255, 255, 255, 0.08); }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col md:flex-row overflow-hidden pb-16 md:pb-0">
+
+    <!-- LEFT NAVIGATION BAR -->
+    <div class="hidden md:flex w-[240px] glass-sidebar flex-col h-full p-4 justify-between z-20 shrink-0">
+        <div>
+            <h1 class="font-bold text-xl bg-gradient-to-r from-pink-500 to-indigo-500 bg-clip-text text-transparent mb-8 px-2">Vibely</h1>
+            <div class="space-y-2">
+                <a href="/home" class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800 font-semibold"><i class="fa-solid fa-house"></i> Home</a>
+                <button onclick="toggleSearchDrawer()" class="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800 text-left"><i class="fa-solid fa-search"></i> Search</button>
+                <a href="/inbox" class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800"><i class="fa-solid fa-paper-plane"></i> Messages</a>
+                <button onclick="toggleCreateModal()" class="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800"><i class="fa-solid fa-plus"></i> Create</button>
+                <a href="/app/{{ current_user.username }}" class="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-800 font-semibold"><i class="fa-solid fa-user"></i> Profile</a>
+            </div>
+        </div>
+        <div class="border-t border-gray-800 pt-4">
+            <a href="/logout" class="block text-center text-xs text-red-400 py-2 bg-red-500/10 rounded-lg border border-red-500/20">Log Out</a>
+        </div>
+    </div>
+
+    <!-- MOBILE BOTTOM NAVIGATION BAR -->
+    <div class="md:hidden fixed bottom-0 left-0 right-0 h-16 glass-bottom-nav flex items-center justify-around px-2 z-30">
+        <a href="/home" class="text-white p-3 text-lg"><i class="fa-solid fa-house"></i></a>
+        <button onclick="toggleSearchDrawer()" class="text-gray-400 hover:text-white p-3 text-lg"><i class="fa-solid fa-search"></i></button>
+        <button onclick="toggleCreateModal()" class="text-gray-400 hover:text-white p-3 text-lg"><i class="fa-solid fa-square-plus"></i></button>
+        <a href="/inbox" class="text-gray-400 hover:text-white p-3 text-lg"><i class="fa-solid fa-paper-plane"></i></a>
+        <a href="/app/{{ current_user.username }}" class="text-gray-400 hover:text-white p-3 text-lg"><i class="fa-solid fa-user"></i></a>
+    </div>
+
+    <!-- EXPANDING SEARCH DRAWER -->
+    <div id="search-drawer" class="w-0 overflow-hidden bg-[#121216] border-r border-gray-800 transition-all duration-300 flex flex-col z-40 fixed md:relative h-full top-0 left-0">
+        <div class="p-4 border-b border-gray-800 flex justify-between items-center w-72 md:w-80">
+            <h2 class="font-bold text-lg">Search</h2>
+            <button onclick="toggleSearchDrawer()" class="text-gray-400 hover:text-white text-lg p-1">✕</button>
+        </div>
+        <div class="p-4 w-72 md:w-80">
+            <input type="text" id="global-search-input" onkeyup="performSearch()" placeholder="Search accounts..."
+                class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
+        </div>
+        <div id="search-results" class="flex-1 overflow-y-auto divide-y divide-gray-900 w-72 md:w-80 p-2"></div>
+    </div>
+
+    <!-- MAIN FEED CONTAINER (Scrollable) -->
+    <div class="flex-1 flex justify-center overflow-y-auto h-full" id="main-scroll-container">
+        <div class="max-w-[630px] w-full py-4 md:py-8 px-3 md:px-4">
+
+            <!-- MOBILE TOP BRAND HEADER -->
+            <div class="md:hidden flex items-center justify-between mb-4 px-1">
+                <h1 class="font-bold text-xl bg-gradient-to-r from-pink-500 to-indigo-500 bg-clip-text text-transparent">Vibely</h1>
+            </div>
+
+            <!-- STORIES TRAY -->
+            <div class="flex gap-4 overflow-x-auto pb-4 mb-6 scrollbar-none border-b border-gray-800">
+                {% for story in stories %}
+                <div onclick="viewStory('{{ story.text }}', '{{ story.username }}')" class="flex flex-col items-center cursor-pointer shrink-0">
+                    <div class="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600">
+                        <div class="w-full h-full rounded-full bg-[#0b0b0f] flex items-center justify-center font-bold text-sm">
+                            {{ story.username[0] | upper }}
+                        </div>
+                    </div>
+                    <span class="text-xs text-gray-300 mt-1 truncate w-16 text-center">{{ story.username }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- POSTS FEED -->
+            <div id="posts-feed" class="space-y-6">
+                {% for post in posts %}
+                <div class="bg-[#121216] border border-gray-800 rounded-xl overflow-hidden">
+                    <div class="p-3 flex items-center justify-between border-b border-gray-800">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
+                                {{ post.username[0] | upper }}
+                            </div>
+                            <span class="font-semibold text-sm flex items-center gap-1">
+                                {{ post.username }}
+                                {% if post.verified %}
+                                <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}" class="w-4 h-4 inline" alt="Verified">
+                                {% endif %}
+                            </span>
+                        </div>
+                        <a href="/app/feed/{{ post.id }}" class="text-xs text-indigo-400 hover:underline">View Post</a>
+                    </div>
+                    <div class="p-4 text-sm text-gray-200 break-words">
+                        {{ post.content }}
+                    </div>
+                    <div class="p-3 border-t border-gray-800 flex items-center gap-6 text-sm text-gray-400">
+                        <button onclick="toggleLike('{{ post.id }}')" id="like-btn-{{ post.id }}" class="flex items-center gap-2 hover:text-rose-500 transition cursor-pointer">
+                            <i class="fa-solid fa-heart text-lg" id="like-icon-{{ post.id }}"></i>
+                            <span id="like-count-{{ post.id }}">{{ post.like_count }}</span> likes
+                        </button>
+                        <a href="/app/feed/{{ post.id }}" class="flex items-center gap-2 hover:text-indigo-400 transition">
+                            <i class="fa-solid fa-comment text-lg"></i> Comments
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Loading Spinner for Infinite Scroll -->
+            <div id="loading-spinner" class="py-6 text-center text-gray-500 text-xs hidden">
+                <i class="fa-solid fa-spinner fa-spin text-lg text-indigo-500 mb-1"></i>
+                <p>Loading more random posts...</p>
+            </div>
+        </div>
+
+        <!-- RIGHT SUGGESTIONS PANEL -->
+        <div class="w-[350px] p-6 hidden lg:block shrink-0">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center font-bold shrink-0">
+                    {{ current_user.username[0] | upper }}
+                </div>
+                <div class="min-w-0">
+                    <h4 class="font-semibold text-sm flex items-center gap-1 truncate">
+                        {{ current_user.username }}
+                        {% if current_user.verified %}
+                        <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}" class="w-4 h-4 inline shrink-0" alt="Verified">
+                        {% endif %}
+                    </h4>
+                    <span class="text-xs text-gray-500">Vibely Member</span>
+                </div>
+            </div>
+
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Suggested for you</h3>
+            <div class="space-y-4">
+                {% for sug in suggestions %}
+                <div class="flex items-center justify-between" id="sug-{{ sug.id }}">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-full bg-gray-800 flex items-center justify-center font-bold text-xs shrink-0">
+                            {{ sug.username[0] | upper }}
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium flex items-center gap-1 truncate">
+                                {{ sug.username }}
+                                {% if sug.verified %}
+                                <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}" class="w-3.5 h-3.5 inline shrink-0" alt="Verified">
+                                {% endif %}
+                            </p>
+                            <p class="text-xs text-gray-500">Suggested user</p>
+                        </div>
+                    </div>
+                    <button onclick="followUser('{{ sug.id }}')" class="text-xs text-indigo-400 font-semibold hover:text-white shrink-0 ml-2">Follow</button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- CREATE POST MODAL -->
+    <div id="create-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-6 w-full max-w-md relative">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold text-base">Create New Post / Story</h3>
+                <button onclick="toggleCreateModal()" class="text-gray-400 hover:text-white p-1">✕</button>
+            </div>
+            <textarea id="create-content-input" placeholder="What's on your mind?"
+                class="w-full h-32 p-3 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none mb-4 resize-none"></textarea>
+
+            <div class="flex items-center gap-6 mb-6">
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" id="check-post" checked class="rounded bg-gray-900 border-gray-700 text-indigo-600 focus:ring-0"> Post
+                </label>
+                <label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" id="check-story" class="rounded bg-gray-900 border-gray-700 text-indigo-600 focus:ring-0"> Story (24h)
+                </label>
+            </div>
+            <button onclick="submitContent()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-semibold transition">Share</button>
+        </div>
+    </div>
+
+    <!-- STORY VIEWER MODAL -->
+    <div id="story-modal" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 hidden" onclick="closeStory()">
+        <div class="bg-[#121216] border border-gray-800 rounded-2xl p-6 md:p-8 max-w-sm w-full text-center relative" onclick="event.stopPropagation()">
+            <h4 id="story-username" class="font-semibold text-sm text-gray-400 mb-4"></h4>
+            <p id="story-text" class="text-lg text-white mb-6 break-words"></p>
+            <button onclick="closeStory()" class="bg-gray-800 text-white px-4 py-2 rounded-lg text-xs">Close</button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        let searchOpen = false;
+        let isLoading = false;
+
+        function toggleSearchDrawer() {
+            const drawer = document.getElementById('search-drawer');
+            searchOpen = !searchOpen;
+            drawer.style.width = searchOpen ? '300px' : '0px';
+        }
+
+        function toggleCreateModal() {
+            const modal = document.getElementById('create-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function viewStory(text, username) {
+            document.getElementById('story-username').innerText = username + "'s Story";
+            document.getElementById('story-text').innerText = text;
+            document.getElementById('story-modal').classList.remove('hidden');
+        }
+
+        function closeStory() {
+            document.getElementById('story-modal').classList.add('hidden');
+        }
+
+        // Infinite Scroll Listener for Loading 10 Random Posts at a time
+        const container = document.getElementById('main-scroll-container');
+        container.addEventListener('scroll', () => {
+            if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+                if (!isLoading) {
+                    loadMoreRandomPosts();
+                }
+            }
+        });
+
+        function loadMoreRandomPosts() {
+            isLoading = true;
+            document.getElementById('loading-spinner').classList.remove('hidden');
+
+            fetch('/api/random_posts')
+                .then(res => res.json())
+                .then(posts => {
+                    const feed = document.getElementById('posts-feed');
+                    posts.forEach(post => {
+                        const verifiedBadge = post.verified ? `<img src="/static/assets/verified_badge.svg" class="w-4 h-4 inline" alt="Verified">` : '';
+                        const div = document.createElement('div');
+                        div.className = "bg-[#121216] border border-gray-800 rounded-xl overflow-hidden";
+                        div.innerHTML = `
+                            <div class="p-3 flex items-center justify-between border-b border-gray-800">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
+                                        ${post.username[0].toUpperCase()}
+                                    </div>
+                                    <span class="font-semibold text-sm flex items-center gap-1">
+                                        ${post.username} ${verifiedBadge}
+                                    </span>
+                                </div>
+                                <a href="/app/feed/${post.id}" class="text-xs text-indigo-400 hover:underline">View Post</a>
+                            </div>
+                            <div class="p-4 text-sm text-gray-200 break-words">
+                                ${post.content}
+                            </div>
+                            <div class="p-3 border-t border-gray-800 flex items-center gap-6 text-sm text-gray-400">
+                                <button onclick="toggleLike('${post.id}')" id="like-btn-${post.id}" class="flex items-center gap-2 hover:text-rose-500 transition cursor-pointer">
+                                    <i class="fa-solid fa-heart text-lg" id="like-icon-${post.id}"></i>
+                                    <span id="like-count-${post.id}">${post.like_count}</span> likes
+                                </button>
+                                <a href="/app/feed/${post.id}" class="flex items-center gap-2 hover:text-indigo-400 transition">
+                                    <i class="fa-solid fa-comment text-lg"></i> Comments
+                                </a>
+                            </div>
+                        `;
+                        feed.appendChild(div);
+                    });
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    isLoading = false;
+                })
+                .catch(err => {
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    isLoading = false;
+                });
+        }
+
+        function toggleLike(postId) {
+            const icon = document.getElementById(`like-icon-${postId}`);
+            const countSpan = document.getElementById(`like-count-${postId}`);
+
+            fetch('/api/like', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ post_id: postId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    countSpan.innerText = data.like_count;
+                    if (data.liked) {
+                        icon.classList.add('text-rose-500');
+                    } else {
+                        icon.classList.remove('text-rose-500');
+                    }
+                }
+            });
+        }
+
+        function performSearch() {
+            const query = document.getElementById('global-search-input').value;
+            if (!query) {
+                document.getElementById('search-results').innerHTML = '';
+                return;
+            }
+            fetch(`/api/search_users?q=${query}`)
+                .then(res => res.json())
+                .then(users => {
+                    const container = document.getElementById('search-results');
+                    container.innerHTML = '';
+                    users.forEach(u => {
+                        container.innerHTML += `
+                        <div class="flex items-center justify-between p-3">
+                            <span class="text-sm font-medium flex items-center gap-1 truncate max-w-[170px]">
+                                ${u.username} ${u.verified ? '<img src="/static/assets/verified_badge.svg" class="w-3.5 h-3.5 inline">' : ''}
+                            </span>
+                            <a href="/app/profile/${u.username}" class="text-xs bg-indigo-600 px-3 py-1 rounded-md text-white shrink-0">Profile</a>
+                        </div>`;
+                    });
+                });
+        }
+
+        function followUser(userId) {
+            fetch('/api/follow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: userId })
+            }).then(res => res.json()).then(data => {
+                if (data.status === 'success') {
+                    const sugCard = document.getElementById(`sug-${userId}`);
+                    if (sugCard) sugCard.remove();
+                }
+            });
+        }
+
+        function submitContent() {
+            const content = document.getElementById('create-content-input').value;
+            const is_post = document.getElementById('check-post').checked;
+            const is_story = document.getElementById('check-story').checked;
+
+            if (!content.trim()) return;
+
+            fetch('/api/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, is_post, is_story })
+            }).then(res => res.json()).then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibely • Coming Soon / Page Not Found</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+        * {
+            font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0b0b0f;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .gradient-title {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b, #8a2387, #e94057, #f27121);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
+            transition: opacity 0.3s ease, transform 0.2s ease;
+        }
+        .btn-gradient:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .glass-card {
+            background: rgba(18, 18, 24, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="w-full max-w-md glass-card rounded-2xl p-8 text-center">
+        <!-- Icon / Badge -->
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-2xl mb-6 shadow-inner">
+            <i class="fa-solid fa-person-digging"></i>
+        </div>
+
+        <!-- Heading -->
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight gradient-title mb-2">Coming Soon</h1>
+        <p class="text-gray-400 text-sm mb-6">
+            {% if message %}
+                {{ message }}
+            {% else %}
+                The page or post you are looking for is either under construction or doesn't exist yet!
+            {% endif %}
+        </p>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <a href="/home" class="py-3 px-5 rounded-xl text-white font-semibold text-sm btn-gradient shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-house"></i> Back to Home
+            </a>
+            <a href="javascript:history.back()" class="py-3 px-5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-700 text-gray-200 font-medium text-sm transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-arrow-left"></i> Go Back
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>
