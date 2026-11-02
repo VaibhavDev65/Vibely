@@ -304,7 +304,7 @@ def send_message():
     return jsonify({"status": "error"}), 400
 
 @app.route('/app/<username>')
-def my_profile(username):
+def profile(username):
     cursor = mysql.connection.cursor()
     # Fetch user details
     cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
@@ -314,16 +314,14 @@ def my_profile(username):
         cursor.close()
         return "User not found", 404
         
-    # Check if logged in user matches this profile
-    if session.get('user_id') != profile_user['id']:
-        cursor.close()
-        return redirect(url_for('other_profile', username=username))
-        
+    my_id = session.get('user_id')
+    is_my_profile = (my_id == profile_user['id'])
+    
     # Fetch user's posts
     cursor.execute("SELECT * FROM posts WHERE user_id = %s ORDER BY timestamp DESC", (profile_user['id'],))
     posts = cursor.fetchall()
     
-    # Fetch post count, followers count, following count
+    # Fetch counts
     cursor.execute("SELECT COUNT(*) as count FROM posts WHERE user_id = %s", (profile_user['id'],))
     post_count = cursor.fetchone()['count']
     
@@ -333,8 +331,20 @@ def my_profile(username):
     cursor.execute("SELECT COUNT(*) as count FROM followings WHERE my_id = %s", (profile_user['id'],))
     following_count = cursor.fetchone()['count']
     
+    is_following = False
+    if not is_my_profile:
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, profile_user['id']))
+        is_following = cursor.fetchone() is not None
+        
     cursor.close()
-    return render_template('profile.html', profile_user=profile_user, posts=posts, post_count=post_count, follower_count=follower_count, following_count=following_count, is_my_profile=True)
+    return render_template('profile.html', 
+                           profile_user=profile_user, 
+                           posts=posts, 
+                           post_count=post_count, 
+                           follower_count=follower_count, 
+                           following_count=following_count, 
+                           is_my_profile=is_my_profile, 
+                           is_following=is_following)
 
 @app.route('/app/profile/<username>')
 def other_profile(username):
@@ -347,6 +357,8 @@ def other_profile(username):
         return "User not found", 404
         
     my_id = session.get('user_id')
+    
+    # FIX: Agar logged-in user hi apni profile khol raha hai, toh seedha my_profile render karein
     if my_id == profile_user['id']:
         cursor.close()
         return redirect(url_for('my_profile', username=username))
@@ -370,7 +382,6 @@ def other_profile(username):
     
     cursor.close()
     return render_template('profile.html', profile_user=profile_user, posts=posts, post_count=post_count, follower_count=follower_count, following_count=following_count, is_my_profile=False, is_following=is_following)
-
 # Global 404 Error Handler (For any invalid route/link)
 @app.errorhandler(404)
 def page_not_found(e):
