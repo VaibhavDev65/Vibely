@@ -40,6 +40,7 @@ class PyMySQLWrapper:
 mysql = PyMySQLWrapper(app)
 
 # Middleware / Before Request to check Session & Cookies
+# Middleware / Before Request to check Session & Cookies
 @app.before_request
 def check_auth():
     allowed_routes = ['login', 'signup', 'static']
@@ -47,7 +48,19 @@ def check_auth():
         # Check if cookie exists for auto-login
         cookie_user = request.cookies.get('vibely_session_id')
         if cookie_user:
-            session['user_id'] = cookie_user
+            try:
+                user_id = int(cookie_user)
+                cursor = mysql.connection.cursor()
+                cursor.execute("SELECT id, username FROM users WHERE id = %s", (user_id,))
+                user = cursor.fetchone()
+                cursor.close()
+                if user:
+                    session['user_id'] = user['id']       # Integer format maintain karega
+                    session['username'] = user['username'] # Username bhi restore ho jayega
+                else:
+                    return redirect(url_for('logout'))
+            except Exception:
+                return redirect(url_for('login'))
         else:
             return redirect(url_for('login'))
 
