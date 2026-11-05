@@ -127,15 +127,17 @@ def chat_dashboard():
     cursor = mysql.connection.cursor()
     user_id = session['user_id']
     
+    # Fetch chatted users ordered by latest message timestamp, with unread prioritization
     cursor.execute("""
-        SELECT DISTINCT u.id, u.username 
+        SELECT u.id, u.username, u.verified,
+               MAX(m.timestamp) as last_time,
+               SUM(CASE WHEN m.receiver_id = %s AND m.is_seen = 0 AND m.delete_status = 0 THEN 1 ELSE 0 END) as unread_count
         FROM users u 
-        WHERE u.id IN (
-            SELECT sender_id FROM messages WHERE receiver_id = %s
-            UNION
-            SELECT receiver_id FROM messages WHERE sender_id = %s
-        )
-    """, (user_id, user_id))
+        JOIN messages m ON (u.id = m.sender_id OR u.id = m.receiver_id)
+        WHERE (m.sender_id = %s OR m.receiver_id = %s) AND u.id != %s
+        GROUP BY u.id, u.username, u.verified
+        ORDER BY unread_count DESC, last_time DESC
+    """, (user_id, user_id, user_id, user_id))
     chat_users = cursor.fetchall()
     
     cursor.execute("SELECT id, username FROM users WHERE id != %s", (user_id,))
@@ -146,6 +148,12 @@ def chat_dashboard():
     cursor.close()
     
     return render_template('chat.html', chat_users=chat_users, all_users=all_users, current_user=current_user)
+
+def check_privacy(val):
+    """Safely evaluates MySQL tinyint, int, bool, or bytes (b'\\x00' / b'\\x01')"""
+    if isinstance(val, bytes):
+        return int(val[0]) if len(val) > 0 else 0
+    return int(val) if val else 0
 
 @app.route('/home')
 def home():
@@ -261,15 +269,35 @@ def create_content():
 @app.route('/api/follow', methods=['POST'])
 def follow_user():
     data = request.json
-    my_id = session['user_id']
+    my_id = session.get('user_id')
     target_id = data.get('target_id')
     
+    if not my_id or not target_id:
+        return jsonify({"status": "error", "message": "Unauthorized or missing parameters"}), 400
+    
     cursor = mysql.connection.cursor()
-    cursor.execute("INSERT IGNORE INTO followings (my_id, following_id) VALUES (%s, %s)", (my_id, target_id))
-    cursor.execute("INSERT IGNORE INTO followers (user_id, followed_by_id) VALUES (%s, %s)", (target_id, my_id))
-    mysql.connection.commit()
-    cursor.close()
-    return jsonify({"status": "success"})
+    try:
+        # Check if already following
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, target_id))
+        existing_follow = cursor.fetchone()
+        
+        if existing_follow:
+            # Unfollow: Delete entries from followings and followers
+            cursor.execute("DELETE FROM followings WHERE my_id = %s AND following_id = %s", (my_id, target_id))
+            cursor.execute("DELETE FROM followers WHERE user_id = %s AND followed_by_id = %s", (target_id, my_id))
+            action = "unfollowed"
+        else:
+            # Follow: Insert entries into followings and followers
+            cursor.execute("INSERT IGNORE INTO followings (my_id, following_id) VALUES (%s, %s)", (my_id, target_id))
+            cursor.execute("INSERT IGNORE INTO followers (user_id, followed_by_id) VALUES (%s, %s)", (target_id, my_id))
+            action = "followed"
+            
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success", "action": action})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/search_users')
 def search_users():
@@ -284,15 +312,61 @@ def search_users():
 def get_messages(receiver_id):
     sender_id = session['user_id']
     cursor = mysql.connection.cursor()
+    
+    # Mark incoming messages as seen when chat is opened/fetched
+    cursor.execute("""
+        UPDATE messages 
+        SET is_seen = 1 
+        WHERE sender_id = %s AND receiver_id = %s AND is_seen = 0
+    """, (receiver_id, sender_id))
+    mysql.connection.commit()
+
+    # Fetch only non-deleted messages
     cursor.execute("""
         SELECT * FROM messages 
-        WHERE (sender_id = %s AND receiver_id = %s) 
-           OR (sender_id = %s AND receiver_id = %s) 
+        WHERE ((sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s))
+          AND delete_status = 0 
         ORDER BY timestamp ASC
     """, (sender_id, receiver_id, receiver_id, sender_id))
     messages = cursor.fetchall()
     cursor.close()
     return jsonify(messages)
+
+# API: Edit Message
+@app.route('/api/message/edit', methods=['POST'])
+def edit_message():
+    data = request.json
+    user_id = session.get('user_id')
+    msg_id = data.get('message_id')
+    new_text = data.get('new_text')
+    
+    cursor = mysql.connection.cursor()
+    try:
+        cursor.execute("UPDATE messages SET message = %s WHERE id = %s AND sender_id = %s", (new_text, msg_id, user_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# API: Local Delete Message (Sets delete_status = 1)
+@app.route('/api/message/delete', methods=['POST'])
+def delete_message():
+    data = request.json
+    user_id = session.get('user_id')
+    msg_id = data.get('message_id')
+    
+    cursor = mysql.connection.cursor()
+    try:
+        # User can delete their own message locally from their view
+        cursor.execute("UPDATE messages SET delete_status = 1 WHERE id = %s AND (sender_id = %s OR receiver_id = %s)", (msg_id, user_id, user_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/send', methods=['POST'])
 def send_message():
@@ -310,6 +384,24 @@ def send_message():
         return jsonify({"status": "success"})
     return jsonify({"status": "error"}), 400
 
+@app.route('/api/unread_status')
+def unread_status():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"has_unread": False})
+    
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        SELECT COUNT(*) as count 
+        FROM messages 
+        WHERE receiver_id = %s AND is_seen = 0 AND delete_status = 0
+    """, (user_id,))
+    res = cursor.fetchone()
+    cursor.close()
+    
+    has_unread = res['count'] > 0 if res else False
+    return jsonify({"has_unread": has_unread})
+
 @app.route('/app/<username>')
 def profile(username):
     cursor = mysql.connection.cursor()
@@ -324,14 +416,23 @@ def profile(username):
     is_my_profile = (my_id == profile_user['id'])
     
     is_following = False
-    if not is_my_profile:
+    they_follow_me = False
+    if not is_my_profile and my_id:
+        # Check if we follow them (button state ke liye)
         cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, profile_user['id']))
         is_following = cursor.fetchone() is not None
+        
+        # Check if they follow us (Am I in their following list? -> my_id = profile_user['id'], following_id = my_id)
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (profile_user['id'], my_id))
+        they_follow_me = cursor.fetchone() is not None
 
-    # PRIVACY CHECK: If account is private, viewer is not owner, and not following -> cannot view posts[cite: 10]
+    account_is_private = check_privacy(profile_user.get('is_private'))
+
+    # PRIVACY CHECK: Agar account private hai aur apni profile nahi hai, 
+    # toh tabhi dikhega jab wo humein follow karte hon (they_follow_me)
     can_view = True
-    if profile_user.get('is_private') and not is_my_profile and not is_following:
-        can_view = False
+    if account_is_private and not is_my_profile:
+        can_view = they_follow_me
 
     posts = []
     cursor.execute("SELECT COUNT(*) as count FROM posts WHERE user_id = %s", (profile_user['id'],))
@@ -356,7 +457,93 @@ def profile(username):
                            following_count=following_count, 
                            is_my_profile=is_my_profile, 
                            is_following=is_following,
+                           they_follow_me=they_follow_me,
                            can_view=can_view)
+
+
+@app.route('/api/followers/<int:user_id>')
+def get_followers(user_id):
+    my_id = session.get('user_id')
+    cursor = mysql.connection.cursor()
+    
+    cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
+    target_user = cursor.fetchone()
+    if not target_user:
+        cursor.close()
+        return jsonify([]), 404
+        
+    is_my_profile = (my_id == user_id)
+    they_follow_me = False
+    if not is_my_profile and my_id:
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (user_id, my_id))
+        they_follow_me = cursor.fetchone() is not None
+        
+    account_is_private = check_privacy(target_user.get('is_private'))
+    if account_is_private and not is_my_profile and not they_follow_me:
+        cursor.close()
+        return jsonify([]), 403
+
+    cursor.execute("""
+        SELECT u.id, u.username, u.name, u.verified 
+        FROM followers f 
+        JOIN users u ON f.followed_by_id = u.id 
+        WHERE f.user_id = %s
+    """, (user_id,))
+    users = cursor.fetchall()
+    cursor.close()
+    return jsonify(users)
+
+
+@app.route('/api/followings/<int:user_id>')
+def get_followings(user_id):
+    my_id = session.get('user_id')
+    cursor = mysql.connection.cursor()
+    
+    cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
+    target_user = cursor.fetchone()
+    if not target_user:
+        cursor.close()
+        return jsonify([]), 404
+        
+    is_my_profile = (my_id == user_id)
+    they_follow_me = False
+    if not is_my_profile and my_id:
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (user_id, my_id))
+        they_follow_me = cursor.fetchone() is not None
+        
+    account_is_private = check_privacy(target_user.get('is_private'))
+    if account_is_private and not is_my_profile and not they_follow_me:
+        cursor.close()
+        return jsonify([]), 403
+
+    cursor.execute("""
+        SELECT u.id, u.username, u.name, u.verified 
+        FROM followings f 
+        JOIN users u ON f.following_id = u.id 
+        WHERE f.my_id = %s
+    """, (user_id,))
+    users = cursor.fetchall()
+    cursor.close()
+    return jsonify(users)
+
+@app.route('/api/update_privacy', methods=['POST'])
+def update_privacy():
+    data = request.json
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+    is_private = 1 if data.get('is_private') else 0
+    
+    cursor = mysql.connection.cursor()
+    try:
+        cursor.execute("UPDATE users SET is_private = %s WHERE id = %s", (is_private, user_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/app/profile/<username>')
 def other_profile(username):
@@ -423,69 +610,6 @@ def view_post(post_id):
         
     return render_template('single_post.html', post=post, comments=comments, current_user=current_user)
 
-@app.route('/api/followers/<int:user_id>')
-def get_followers(user_id):
-    my_id = session.get('user_id')
-    cursor = mysql.connection.cursor()
-    
-    # Check target user privacy
-    cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
-    target_user = cursor.fetchone()
-    if not target_user:
-        cursor.close()
-        return jsonify([]), 404
-        
-    is_my_profile = (my_id == user_id)
-    is_following = False
-    if not is_my_profile and my_id:
-        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, user_id))
-        is_following = cursor.fetchone() is not None
-        
-    if target_user.get('is_private') and not is_my_profile and not is_following:
-        cursor.close()
-        return jsonify([]), 403
-
-    cursor.execute("""
-        SELECT u.id, u.username, u.name, u.verified 
-        FROM followers f 
-        JOIN users u ON f.followed_by_id = u.id 
-        WHERE f.user_id = %s
-    """, (user_id,))
-    users = cursor.fetchall()
-    cursor.close()
-    return jsonify(users)
-
-@app.route('/api/followings/<int:user_id>')
-def get_followings(user_id):
-    my_id = session.get('user_id')
-    cursor = mysql.connection.cursor()
-    
-    # Check target user privacy
-    cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
-    target_user = cursor.fetchone()
-    if not target_user:
-        cursor.close()
-        return jsonify([]), 404
-        
-    is_my_profile = (my_id == user_id)
-    is_following = False
-    if not is_my_profile and my_id:
-        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, user_id))
-        is_following = cursor.fetchone() is not None
-        
-    if target_user.get('is_private') and not is_my_profile and not is_following:
-        cursor.close()
-        return jsonify([]), 403
-
-    cursor.execute("""
-        SELECT u.id, u.username, u.name, u.verified 
-        FROM followings f 
-        JOIN users u ON f.following_id = u.id 
-        WHERE f.my_id = %s
-    """, (user_id,))
-    users = cursor.fetchall()
-    cursor.close()
-    return jsonify(users)
 
 @app.route('/api/update_profile', methods=['POST'])
 def update_profile():
@@ -522,6 +646,30 @@ def update_profile():
     except Exception as e:
         cursor.close()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/chat_list')
+def api_chat_list():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify([])
+    cursor = mysql.connection.cursor()
+    cursor.execute("""
+        SELECT u.id, u.username, u.verified,
+               MAX(m.timestamp) as last_time,
+               SUM(CASE WHEN m.receiver_id = %s AND m.is_seen = 0 AND m.delete_status = 0 THEN 1 ELSE 0 END) as unread_count
+        FROM users u 
+        JOIN messages m ON (u.id = m.sender_id OR u.id = m.receiver_id)
+        WHERE (m.sender_id = %s OR m.receiver_id = %s) AND u.id != %s
+        GROUP BY u.id, u.username, u.verified
+        ORDER BY unread_count DESC, last_time DESC
+    """, (user_id, user_id, user_id, user_id))
+    chat_users = cursor.fetchall()
+    cursor.close()
+    
+    for cu in chat_users:
+        if cu.get('last_time'):
+            cu['last_time'] = cu['last_time'].strftime('%Y-%m-%d %H:%M:%S')
+    return jsonify(chat_users)
 
 @app.route('/api/like', methods=['POST'])
 def toggle_like():

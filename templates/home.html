@@ -7,6 +7,7 @@
     <title>Vibely - Home</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
     <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='utility.css') }}">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
@@ -415,6 +416,29 @@
                 window.location.href = `/app/${username}`;
             }
         }
+
+        // Global Unread Message Checker for Home and Profile Navigation
+        function checkGlobalUnreadMessages() {
+            fetch('/api/unread_status')
+                .then(res => res.json())
+                .then(data => {
+                    document.querySelectorAll('a[href="/inbox"]').forEach(el => {
+                        let dot = el.querySelector('.unread-red-dot');
+                        if (data.has_unread) {
+                            if (!dot) {
+                                dot = document.createElement('span');
+                                dot.className = 'unread-red-dot absolute top-2 right-3 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-[#121216]';
+                                el.style.position = 'relative';
+                                el.appendChild(dot);
+                            }
+                        } else {
+                            if (dot) dot.remove();
+                        }
+                    });
+                });
+        }
+        setInterval(checkGlobalUnreadMessages, 2000);
+        window.addEventListener('DOMContentLoaded', checkGlobalUnreadMessages);
     </script>
 </body>
 

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
     <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='utility.css') }}">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
 
@@ -196,25 +197,19 @@
 
         function updatePrivacy(checkbox) {
             const is_private = checkbox.checked;
-            // Current user details ke sath baki fields bhi bhejni hongi taaki update query fail na ho
-            const name = "{{ current_user.name or '' }}";
-            const username = "{{ current_user.username }}";
-            const bio = "{{ current_user.bio or '' }}";
-            const dob = "{{ current_user.dob or '' }}";
-            const gender = "{{ current_user.gender or 'others' }}";
 
-            fetch('/api/update_profile', {
+            fetch('/api/update_privacy', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, username, bio, dob, gender, is_private })
+                body: JSON.stringify({ is_private })
             })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status !== 'success') {
-                        alert('Failed to update privacy setting');
-                        checkbox.checked = !is_private; // Revert on failure
-                    }
-                });
+            .then(res => res.json())
+            .then(data => {
+                if (data.status !== 'success') {
+                    alert('Failed to update privacy setting');
+                    checkbox.checked = !is_private; // Revert on failure
+                }
+            });
         }
     </script>
 </body>

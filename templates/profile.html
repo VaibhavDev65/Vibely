@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ profile_user.username }} • Vibely Profile</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='utility.css') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -263,10 +264,25 @@
             </div>
         </div>
     </div>
+    <div id="profile-meta" data-is-private="{{ 'true' if profile_user.is_private else 'false' }}"
+        data-is-my-profile="{{ 'true' if is_my_profile else 'false' }}"
+        data-is-following="{{ 'true' if is_following else 'false' }}"
+        data-is-follower="{{ 'true' if is_follower else 'false' }}" class="hidden"></div>
 
     <!-- JAVASCRIPT -->
     <script>
         function openUserList(type, userId) {
+            const meta = document.getElementById('profile-meta');
+            const isPrivate = meta.dataset.isPrivate === 'true';
+            const isMyProfile = meta.dataset.isMyProfile === 'true';
+            const theyFollowMe = meta.dataset.theyFollowMe === 'true';
+
+            // Agar account private hai, apni profile nahi hai, aur wo humein follow nahi karte hain
+            if (isPrivate && !isMyProfile && !theyFollowMe) {
+                alert('This account is private. They must follow you to see their followers and followings.');
+                return;
+            }
+
             const titleEl = document.getElementById('modal-title');
             const container = document.getElementById('modal-user-container');
             titleEl.innerText = type;
@@ -283,15 +299,16 @@
                     }
                     users.forEach(u => {
                         container.innerHTML += `
-                        <div class="flex items-center justify-between pt-2">
-                            <a href="/app/${u.username}" class="flex items-center gap-2 text-sm font-medium text-white hover:underline">
-                                <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
-                                    ${u.username[0].toUpperCase()}
-                                </div>
-                                <span>${u.username}</span>
-                            </a>
+                <div onclick="window.location.href='/app/${u.username}'" class="flex items-center justify-between pt-3 pb-2 cursor-pointer hover:bg-gray-800/40 px-2 rounded-lg transition">
+                    <div class="flex items-center gap-2 text-sm font-medium text-white">
+                        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
+                            ${u.username[0].toUpperCase()}
                         </div>
-                    `;
+                        <span>${u.username}</span>
+                    </div>
+                    <span class="text-xs text-indigo-400">View</span>
+                </div>
+            `;
                     });
                 });
         }
@@ -343,18 +360,47 @@
                 .then(data => {
                     if (data.status === 'success') {
                         const btn = document.getElementById('follow-btn');
-                        if (btn.innerText === 'Follow') {
+                        const meta = document.getElementById('profile-meta');
+
+                        if (data.action === 'followed') {
                             btn.innerText = 'Following';
                             btn.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
                             btn.classList.add('bg-gray-800', 'hover:bg-gray-700');
+                            meta.dataset.isFollowing = 'true';
                         } else {
                             btn.innerText = 'Follow';
                             btn.classList.remove('bg-gray-800', 'hover:bg-gray-700');
                             btn.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+                            meta.dataset.isFollowing = 'false';
                         }
+                    } else {
+                        alert(data.message || 'Action failed');
                     }
                 });
         }
+
+        // Global Unread Message Checker for Home and Profile Navigation
+        function checkGlobalUnreadMessages() {
+            fetch('/api/unread_status')
+                .then(res => res.json())
+                .then(data => {
+                    document.querySelectorAll('a[href="/inbox"]').forEach(el => {
+                        let dot = el.querySelector('.unread-red-dot');
+                        if (data.has_unread) {
+                            if (!dot) {
+                                dot = document.createElement('span');
+                                dot.className = 'unread-red-dot absolute top-2 right-3 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-[#121216]';
+                                el.style.position = 'relative';
+                                el.appendChild(dot);
+                            }
+                        } else {
+                            if (dot) dot.remove();
+                        }
+                    });
+                });
+        }
+        setInterval(checkGlobalUnreadMessages, 2000);
+        window.addEventListener('DOMContentLoaded', checkGlobalUnreadMessages);
     </script>
 </body>
 
