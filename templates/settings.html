@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,15 +10,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
-        * { font-family: 'Poppins', sans-serif; }
-        body { background-color: #0b0b0f; color: #fff; }
+
+        * {
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #0b0b0f;
+            color: #fff;
+        }
     </style>
 </head>
+
 <body class="min-h-screen flex flex-col items-center justify-start p-4 md:p-8">
 
     <!-- BACK TO PROFILE HEADER -->
     <div class="max-w-[630px] w-full mb-4 flex items-center justify-between">
-        <a href="/app/{{ session.get('username') }}" class="text-sm text-indigo-400 hover:underline flex items-center gap-2">
+        <a href="/app/{{ session.get('username') }}"
+            class="text-sm text-indigo-400 hover:underline flex items-center gap-2">
             <i class="fa-solid fa-arrow-left"></i> Back to Profile
         </a>
     </div>
@@ -30,7 +40,8 @@
 
         <div class="space-y-3">
             <!-- 1. About Account Button -->
-            <button type="button" onclick="toggleAboutModal()" class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
+            <button type="button" onclick="toggleAboutModal()"
+                class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-circle-info text-indigo-400 text-lg"></i>
                     <span class="text-sm font-medium">About Account</span>
@@ -38,8 +49,25 @@
                 <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
             </button>
 
+            <!-- Settings list ke andar ye option add karein -->
+            <div
+                class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 border border-gray-800 transition">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-lock text-indigo-400 text-lg"></i>
+                    <span class="text-sm font-medium">Account Privacy</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="privacy-toggle" class="sr-only peer" {% if current_user.is_private
+                        %}checked{% endif %} onchange="updatePrivacy(this)">
+                    <div
+                        class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                    </div>
+                </label>
+            </div>
+
             <!-- 2. Edit Account Button (Opens Dialog Box Directly) -->
-            <button type="button" onclick="toggleEditModal()" class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
+            <button type="button" onclick="toggleEditModal()"
+                class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-user-pen text-indigo-400 text-lg"></i>
                     <span class="text-sm font-medium">Edit Account</span>
@@ -48,7 +76,8 @@
             </button>
 
             <!-- 3. Customer Care Button -->
-            <button type="button" onclick="alert('For support, contact admin at vaibhavbbk7@gmail.com')" class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
+            <button type="button" onclick="alert('For support, contact admin at vaibhavbbk7@gmail.com')"
+                class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-headset text-indigo-400 text-lg"></i>
                     <span class="text-sm font-medium">Customer Care</span>
@@ -57,7 +86,8 @@
             </button>
 
             <!-- 4. Logout Button (Always at the end) -->
-            <a href="/logout" class="w-full flex items-center justify-between p-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition text-red-400">
+            <a href="/logout"
+                class="w-full flex items-center justify-between p-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition text-red-400">
                 <div class="flex items-center gap-3">
                     <i class="fa-solid fa-right-from-bracket text-lg"></i>
                     <span class="text-sm font-medium">Logout</span>
@@ -101,7 +131,8 @@
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Username</label>
                     <input type="text" id="edit-username" value="{{ current_user.username }}"
-                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none" required>
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none"
+                        required>
                 </div>
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Bio</label>
@@ -117,13 +148,15 @@
                     <label class="block text-xs text-gray-400 mb-1">Gender</label>
                     <select id="edit-gender"
                         class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none">
-                        <option value="male" {% if current_user.gender == 'male' %}selected{% endif %}>Male</option>
-                        <option value="female" {% if current_user.gender == 'female' %}selected{% endif %}>Female</option>
-                        <option value="others" {% if current_user.gender == 'others' or not current_user.gender %}selected{% endif %}>Prefer not to say / Others</option>
+                        <option value="male" {% if current_user.gender=='male' %}selected{% endif %}>Male</option>
+                        <option value="female" {% if current_user.gender=='female' %}selected{% endif %}>Female</option>
+                        <option value="others" {% if current_user.gender=='others' or not current_user.gender
+                            %}selected{% endif %}>Prefer not to say / Others</option>
                     </select>
                 </div>
                 <button type="submit"
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-semibold transition mt-2">Save Changes</button>
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-semibold transition mt-2">Save
+                    Changes</button>
             </form>
         </div>
     </div>
@@ -150,16 +183,40 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, username, bio, dob, gender })
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Update ke baad changes dikhane ke liye page reload hoga
-                    window.location.reload();
-                } else {
-                    alert(data.message || 'Failed to update profile');
-                }
-            });
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Update ke baad changes dikhane ke liye page reload hoga
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'Failed to update profile');
+                    }
+                });
+        }
+
+        function updatePrivacy(checkbox) {
+            const is_private = checkbox.checked;
+            // Current user details ke sath baki fields bhi bhejni hongi taaki update query fail na ho
+            const name = "{{ current_user.name or '' }}";
+            const username = "{{ current_user.username }}";
+            const bio = "{{ current_user.bio or '' }}";
+            const dob = "{{ current_user.dob or '' }}";
+            const gender = "{{ current_user.gender or 'others' }}";
+
+            fetch('/api/update_profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, username, bio, dob, gender, is_private })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        alert('Failed to update privacy setting');
+                        checkbox.checked = !is_private; // Revert on failure
+                    }
+                });
         }
     </script>
 </body>
+
 </html>

@@ -123,13 +123,14 @@
             <div id="posts-feed" class="space-y-6">
                 {% for post in posts %}
                 <div class="bg-[#121216] border border-gray-800 rounded-xl overflow-hidden">
-                    <div class="p-3 flex items-center justify-between border-b border-gray-800">
+                    <div onclick="goToProfile('{{ post.username }}')"
+                        class="p-3 flex items-center justify-between border-b border-gray-800 cursor-pointer hover:bg-gray-800/30 transition">
                         <div class="flex items-center gap-2">
                             <div
-                                class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
+                                class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs text-white">
                                 {{ post.username[0] | upper }}
                             </div>
-                            <span class="font-semibold text-sm flex items-center gap-1">
+                            <span class="font-semibold text-sm flex items-center gap-1 text-white">
                                 {{ post.username }}
                                 {% if post.verified %}
                                 <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}"
@@ -137,7 +138,8 @@
                                 {% endif %}
                             </span>
                         </div>
-                        <a href="/app/feed/{{ post.id }}" class="text-xs text-indigo-400 hover:underline">View Post</a>
+                        <a href="/app/feed/{{ post.id }}" onclick="event.stopPropagation()"
+                            class="text-xs text-indigo-400 hover:underline">View Post</a>
                     </div>
                     <div class="p-4 text-sm text-gray-200 break-words">
                         {{ post.content }}
@@ -298,30 +300,30 @@
                         const div = document.createElement('div');
                         div.className = "bg-[#121216] border border-gray-800 rounded-xl overflow-hidden";
                         div.innerHTML = `
-                            <div class="p-3 flex items-center justify-between border-b border-gray-800">
-                                <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs">
-                                        ${post.username[0].toUpperCase()}
-                                    </div>
-                                    <span class="font-semibold text-sm flex items-center gap-1">
-                                        ${post.username} ${verifiedBadge}
-                                    </span>
-                                </div>
-                                <a href="/app/feed/${post.id}" class="text-xs text-indigo-400 hover:underline">View Post</a>
-                            </div>
-                            <div class="p-4 text-sm text-gray-200 break-words">
-                                ${post.content}
-                            </div>
-                            <div class="p-3 border-t border-gray-800 flex items-center gap-6 text-sm text-gray-400">
-                                <button onclick="toggleLike('${post.id}')" id="like-btn-${post.id}" class="flex items-center gap-2 hover:text-rose-500 transition cursor-pointer">
-                                    <i class="fa-solid fa-heart text-lg" id="like-icon-${post.id}"></i>
-                                    <span id="like-count-${post.id}">${post.like_count}</span> likes
-                                </button>
-                                <a href="/app/feed/${post.id}" class="flex items-center gap-2 hover:text-indigo-400 transition">
-                                    <i class="fa-solid fa-comment text-lg"></i> Comments
-                                </a>
-                            </div>
-                        `;
+    <div onclick="goToProfile('${post.username}')" class="p-3 flex items-center justify-between border-b border-gray-800 cursor-pointer hover:bg-gray-800/30 transition">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-xs text-white">
+                ${post.username[0].toUpperCase()}
+            </div>
+            <span class="font-semibold text-sm flex items-center gap-1 text-white">
+                ${post.username} ${verifiedBadge}
+            </span>
+        </div>
+        <a href="/app/feed/${post.id}" onclick="event.stopPropagation()" class="text-xs text-indigo-400 hover:underline">View Post</a>
+    </div>
+    <div class="p-4 text-sm text-gray-200 break-words">
+        ${post.content}
+    </div>
+    <div class="p-3 border-t border-gray-800 flex items-center gap-6 text-sm text-gray-400">
+        <button onclick="toggleLike('${post.id}')" id="like-btn-${post.id}" class="flex items-center gap-2 hover:text-rose-500 transition cursor-pointer">
+            <i class="fa-solid fa-heart text-lg" id="like-icon-${post.id}"></i>
+            <span id="like-count-${post.id}">${post.like_count}</span> likes
+        </button>
+        <a href="/app/feed/${post.id}" class="flex items-center gap-2 hover:text-indigo-400 transition">
+            <i class="fa-solid fa-comment text-lg"></i> Comments
+        </a>
+    </div>
+`;
                         feed.appendChild(div);
                     });
                     document.getElementById('loading-spinner').classList.add('hidden');
@@ -407,6 +409,11 @@
                     location.reload();
                 }
             });
+        }
+        function goToProfile(username) {
+            if (username) {
+                window.location.href = `/app/${username}`;
+            }
         }
     </script>
 </body>

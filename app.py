@@ -40,7 +40,6 @@ class PyMySQLWrapper:
 mysql = PyMySQLWrapper(app)
 
 # Middleware / Before Request to check Session & Cookies
-# Middleware / Before Request to check Session & Cookies
 @app.before_request
 def check_auth():
     allowed_routes = ['login', 'signup', 'static']
@@ -99,7 +98,7 @@ def login():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'GET':
-        return render_template('login.html') # Or signup template if separate
+        return render_template('login.html')
         
     username = request.form['username']
     email = request.form['email']
@@ -107,14 +106,13 @@ def signup():
     
     try:
         cursor = mysql.connection.cursor()
-        # Storing password as raw text directly
         cursor.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", 
                        (username, email, password))
         mysql.connection.commit()
         cursor.close()
         return redirect(url_for('login'))
     except Exception as e:
-        print("Signup Error:", str(e)) # Terminal mein real error print hoga
+        print("Signup Error:", str(e))
         return render_template('login.html', error=f"Error: {str(e)}")
 
 @app.route('/logout')
@@ -129,7 +127,6 @@ def chat_dashboard():
     cursor = mysql.connection.cursor()
     user_id = session['user_id']
     
-    # 1. Get ONLY users with whom the current user has an active chat history
     cursor.execute("""
         SELECT DISTINCT u.id, u.username 
         FROM users u 
@@ -141,18 +138,15 @@ def chat_dashboard():
     """, (user_id, user_id))
     chat_users = cursor.fetchall()
     
-    # 2. Get ALL users (for starting new chats / search modal)
     cursor.execute("SELECT id, username FROM users WHERE id != %s", (user_id,))
     all_users = cursor.fetchall()
     
-    # 3. Get current logged-in user info
     cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
     current_user = cursor.fetchone()
     cursor.close()
     
     return render_template('chat.html', chat_users=chat_users, all_users=all_users, current_user=current_user)
 
-# Update /home route to load random suggestions and initial 10 random posts
 @app.route('/home')
 def home():
     cursor = mysql.connection.cursor()
@@ -180,14 +174,15 @@ def home():
     """)
     stories = cursor.fetchall()
     
-    # Initial 10 Random Posts (No sequence)
+    # Initial 10 Random Posts (Excluding private accounts unless followed or own posts)[cite: 10]
     cursor.execute("""
         SELECT p.*, u.username, u.verified, 
                (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count
         FROM posts p 
         JOIN users u ON p.user_id = u.id 
+        WHERE (u.is_private = 0 OR p.user_id = %s OR p.user_id IN (SELECT following_id FROM followings WHERE my_id = %s))
         ORDER BY RAND() LIMIT 10
-    """)
+    """, (user_id, user_id))
     posts = cursor.fetchall()
     
     # Random Suggested Users (Max 5, excluding current user and already followed)
@@ -201,18 +196,22 @@ def home():
     cursor.close()
     return render_template('home.html', current_user=current_user, stories=stories, posts=posts, suggestions=suggestions)
 
-# API: Load More Random Posts on Scroll (Max 10 per request)
 @app.route('/api/random_posts')
 def get_random_posts():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
     cursor = mysql.connection.cursor()
     try:
+        # Privacy check applied to random feed posts[cite: 10]
         cursor.execute("""
             SELECT p.*, u.username, u.verified, 
                    (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count
             FROM posts p 
             JOIN users u ON p.user_id = u.id 
+            WHERE (u.is_private = 0 OR p.user_id = %s OR p.user_id IN (SELECT following_id FROM followings WHERE my_id = %s))
             ORDER BY RAND() LIMIT 10
-        """)
+        """, (user_id, user_id))
         posts = cursor.fetchall()
         cursor.close()
         return jsonify(posts)
@@ -220,7 +219,6 @@ def get_random_posts():
         cursor.close()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# API: Add Comment to a Post
 @app.route('/api/comment', methods=['POST'])
 def add_comment():
     data = request.json
@@ -267,9 +265,7 @@ def follow_user():
     target_id = data.get('target_id')
     
     cursor = mysql.connection.cursor()
-    # Add to followings
     cursor.execute("INSERT IGNORE INTO followings (my_id, following_id) VALUES (%s, %s)", (my_id, target_id))
-    # Add to followers
     cursor.execute("INSERT IGNORE INTO followers (user_id, followed_by_id) VALUES (%s, %s)", (target_id, my_id))
     mysql.connection.commit()
     cursor.close()
@@ -284,7 +280,6 @@ def search_users():
     cursor.close()
     return jsonify(users)
 
-# API: Fetch Chat History with a specific user
 @app.route('/api/messages/<int:receiver_id>')
 def get_messages(receiver_id):
     sender_id = session['user_id']
@@ -299,7 +294,6 @@ def get_messages(receiver_id):
     cursor.close()
     return jsonify(messages)
 
-# API: Send a Message
 @app.route('/api/send', methods=['POST'])
 def send_message():
     data = request.json
@@ -319,7 +313,6 @@ def send_message():
 @app.route('/app/<username>')
 def profile(username):
     cursor = mysql.connection.cursor()
-    # Fetch user details
     cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
     profile_user = cursor.fetchone()
     
@@ -330,11 +323,17 @@ def profile(username):
     my_id = session.get('user_id')
     is_my_profile = (my_id == profile_user['id'])
     
-    # Fetch user's posts
-    cursor.execute("SELECT * FROM posts WHERE user_id = %s ORDER BY timestamp DESC", (profile_user['id'],))
-    posts = cursor.fetchall()
-    
-    # Fetch counts
+    is_following = False
+    if not is_my_profile:
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, profile_user['id']))
+        is_following = cursor.fetchone() is not None
+
+    # PRIVACY CHECK: If account is private, viewer is not owner, and not following -> cannot view posts[cite: 10]
+    can_view = True
+    if profile_user.get('is_private') and not is_my_profile and not is_following:
+        can_view = False
+
+    posts = []
     cursor.execute("SELECT COUNT(*) as count FROM posts WHERE user_id = %s", (profile_user['id'],))
     post_count = cursor.fetchone()['count']
     
@@ -343,11 +342,10 @@ def profile(username):
     
     cursor.execute("SELECT COUNT(*) as count FROM followings WHERE my_id = %s", (profile_user['id'],))
     following_count = cursor.fetchone()['count']
-    
-    is_following = False
-    if not is_my_profile:
-        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, profile_user['id']))
-        is_following = cursor.fetchone() is not None
+
+    if can_view:
+        cursor.execute("SELECT * FROM posts WHERE user_id = %s ORDER BY timestamp DESC", (profile_user['id'],))
+        posts = cursor.fetchall()
         
     cursor.close()
     return render_template('profile.html', 
@@ -357,7 +355,8 @@ def profile(username):
                            follower_count=follower_count, 
                            following_count=following_count, 
                            is_my_profile=is_my_profile, 
-                           is_following=is_following)
+                           is_following=is_following,
+                           can_view=can_view)
 
 @app.route('/app/profile/<username>')
 def other_profile(username):
@@ -370,13 +369,10 @@ def other_profile(username):
         return "User not found", 404
         
     my_id = session.get('user_id')
-    
-    # FIX: Agar logged-in user hi apni profile khol raha hai, toh seedha my_profile render karein
     if my_id == profile_user['id']:
         cursor.close()
-        return redirect(url_for('my_profile', username=username))
+        return redirect(url_for('profile', username=username))
         
-    # Fetch posts
     cursor.execute("SELECT * FROM posts WHERE user_id = %s ORDER BY timestamp DESC", (profile_user['id'],))
     posts = cursor.fetchall()
     
@@ -389,18 +385,16 @@ def other_profile(username):
     cursor.execute("SELECT COUNT(*) as count FROM followings WHERE my_id = %s", (profile_user['id'],))
     following_count = cursor.fetchone()['count']
     
-    # Check if already following
     cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, profile_user['id']))
     is_following = cursor.fetchone() is not None
     
     cursor.close()
     return render_template('profile.html', profile_user=profile_user, posts=posts, post_count=post_count, follower_count=follower_count, following_count=following_count, is_my_profile=False, is_following=is_following)
-# Global 404 Error Handler (For any invalid route/link)
+
 @app.errorhandler(404)
 def page_not_found(e):
     return render_template('404.html', message="Oops! The page you are looking for does not exist."), 404
 
-# Update view_post route to handle missing posts gracefully
 @app.route('/app/feed/<int:post_id>')
 def view_post(post_id):
     cursor = mysql.connection.cursor()
@@ -424,13 +418,111 @@ def view_post(post_id):
         
     cursor.close()
     
-    # Agar post database mein nahi mili toh Coming Soon / 404 page dikhayein
     if not post:
         return render_template('404.html', message=f"Post #{post_id} could not be found or has been removed."), 404
         
     return render_template('single_post.html', post=post, comments=comments, current_user=current_user)
 
-# API: Toggle Like/Unlike on a post
+@app.route('/api/followers/<int:user_id>')
+def get_followers(user_id):
+    my_id = session.get('user_id')
+    cursor = mysql.connection.cursor()
+    
+    # Check target user privacy
+    cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
+    target_user = cursor.fetchone()
+    if not target_user:
+        cursor.close()
+        return jsonify([]), 404
+        
+    is_my_profile = (my_id == user_id)
+    is_following = False
+    if not is_my_profile and my_id:
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, user_id))
+        is_following = cursor.fetchone() is not None
+        
+    if target_user.get('is_private') and not is_my_profile and not is_following:
+        cursor.close()
+        return jsonify([]), 403
+
+    cursor.execute("""
+        SELECT u.id, u.username, u.name, u.verified 
+        FROM followers f 
+        JOIN users u ON f.followed_by_id = u.id 
+        WHERE f.user_id = %s
+    """, (user_id,))
+    users = cursor.fetchall()
+    cursor.close()
+    return jsonify(users)
+
+@app.route('/api/followings/<int:user_id>')
+def get_followings(user_id):
+    my_id = session.get('user_id')
+    cursor = mysql.connection.cursor()
+    
+    # Check target user privacy
+    cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
+    target_user = cursor.fetchone()
+    if not target_user:
+        cursor.close()
+        return jsonify([]), 404
+        
+    is_my_profile = (my_id == user_id)
+    is_following = False
+    if not is_my_profile and my_id:
+        cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, user_id))
+        is_following = cursor.fetchone() is not None
+        
+    if target_user.get('is_private') and not is_my_profile and not is_following:
+        cursor.close()
+        return jsonify([]), 403
+
+    cursor.execute("""
+        SELECT u.id, u.username, u.name, u.verified 
+        FROM followings f 
+        JOIN users u ON f.following_id = u.id 
+        WHERE f.my_id = %s
+    """, (user_id,))
+    users = cursor.fetchall()
+    cursor.close()
+    return jsonify(users)
+
+@app.route('/api/update_profile', methods=['POST'])
+def update_profile():
+    data = request.json
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+    name = data.get('name', 'Vibely Member')
+    new_username = data.get('username')
+    bio = data.get('bio', '')
+    dob = data.get('dob') or None
+    gender = data.get('gender', 'others')
+    is_private = 1 if data.get('is_private') else 0
+    
+    cursor = mysql.connection.cursor()
+    try:
+        cursor.execute("SELECT id FROM users WHERE username = %s AND id != %s", (new_username, user_id))
+        if cursor.fetchone():
+            cursor.close()
+            return jsonify({"status": "error", "message": "Username already taken!"}), 400
+
+        cursor.execute("""
+            UPDATE users 
+            SET name = %s, username = %s, bio = %s, dob = %s, gender = %s, is_private = %s 
+            WHERE id = %s
+        """, (name, new_username, bio, dob, gender, is_private, user_id))
+        
+        mysql.connection.commit()
+        cursor.close()
+        session['username'] = new_username
+        
+        return jsonify({"status": "success", "username": new_username})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/like', methods=['POST'])
 def toggle_like():
     data = request.json
@@ -442,22 +534,18 @@ def toggle_like():
 
     cursor = mysql.connection.cursor()
     try:
-        # Check if already liked
         cursor.execute("SELECT id FROM likes WHERE post_id = %s AND user_id = %s", (post_id, user_id))
         existing_like = cursor.fetchone()
 
         if existing_like:
-            # Unlike the post
             cursor.execute("DELETE FROM likes WHERE post_id = %s AND user_id = %s", (post_id, user_id))
             liked = False
         else:
-            # Like the post
             cursor.execute("INSERT INTO likes (post_id, user_id) VALUES (%s, %s)", (post_id, user_id))
             liked = True
 
         mysql.connection.commit()
 
-        # Get updated total count
         cursor.execute("SELECT COUNT(*) as count FROM likes WHERE post_id = %s", (post_id,))
         like_count = cursor.fetchone()['count']
         cursor.close()
@@ -468,44 +556,6 @@ def toggle_like():
         cursor.close()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# Update /api/update_profile to handle DOB
-@app.route('/api/update_profile', methods=['POST'])
-def update_profile():
-    data = request.json
-    user_id = session.get('user_id')
-    
-    if not user_id:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-        
-    name = data.get('name', 'Vibely Member')
-    new_username = data.get('username')
-    bio = data.get('bio', '')
-    dob = data.get('dob') or None
-    gender = data.get('gender', 'others')
-    
-    cursor = mysql.connection.cursor()
-    try:
-        cursor.execute("SELECT id FROM users WHERE username = %s AND id != %s", (new_username, user_id))
-        if cursor.fetchone():
-            cursor.close()
-            return jsonify({"status": "error", "message": "Username already taken!"}), 400
-
-        cursor.execute("""
-            UPDATE users 
-            SET name = %s, username = %s, bio = %s, dob = %s, gender = %s 
-            WHERE id = %s
-        """, (name, new_username, bio, dob, gender, user_id))
-        
-        mysql.connection.commit()
-        cursor.close()
-        session['username'] = new_username
-        
-        return jsonify({"status": "success", "username": new_username})
-    except Exception as e:
-        cursor.close()
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# Settings Page Route
 @app.route('/app/settings')
 def settings_page():
     user_id = session.get('user_id')
