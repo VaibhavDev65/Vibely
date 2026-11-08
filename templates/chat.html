@@ -48,7 +48,7 @@
     </style>
 </head>
 
-<body class="h-[100dvh] flex overflow-hidden" data-verified="{{ '1' if current_user.verified else '0' }}">
+<body class="h-[100dvh] flex overflow-hidden" data-verified="{{ '1' if current_user.verified else '0' }}" data-current-user-id="{{ current_user.id }}">
 
     <!-- LEFT SIDEBAR: Active Conversations -->
     <div id="sidebar-container" class="w-full md:w-[360px] lg:w-[400px] glass-panel flex flex-col h-full relative z-20 flex-shrink-0">
@@ -245,13 +245,60 @@
         </div>
     </div>
 
+    <!-- MESSAGE RIGHT-CLICK CONTEXT MENU -->
+    <div id="msg-context-menu" class="hidden absolute z-50 w-36 bg-[#16161c] border border-gray-800 rounded-xl shadow-2xl overflow-hidden text-xs">
+        <button id="ctx-edit-btn" onclick="openEditMessageModal()" class="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-gray-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-pen text-indigo-400"></i> Edit
+        </button>
+        <button id="ctx-info-btn" onclick="openMessageInfoModal()" class="w-full text-left px-4 py-2.5 text-gray-200 hover:bg-gray-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-circle-info text-blue-400"></i> Info
+        </button>
+        <button id="ctx-delete-btn" onclick="deleteMessageAction()" class="w-full text-left px-4 py-2.5 text-red-400 hover:bg-red-500/10 flex items-center gap-2 transition border-t border-gray-800/60">
+            <i class="fa-solid fa-trash-can"></i> Delete
+        </button>
+    </div>
+
+    <!-- EDIT MESSAGE MODAL -->
+    <div id="edit-msg-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-5 w-full max-w-sm relative">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-sm text-white">Edit Message</h3>
+                <button onclick="closeEditMsgModal()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <textarea id="edit-msg-input" rows="3" class="w-full p-2.5 rounded-lg bg-gray-900 border border-gray-700 text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+            <div class="flex justify-end gap-2 mt-3">
+                <button onclick="closeEditMsgModal()" class="px-3 py-1.5 rounded-lg bg-gray-800 text-xs text-gray-300 hover:bg-gray-700">Cancel</button>
+                <button onclick="submitEditedMessage()" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-xs text-white hover:bg-indigo-700 font-semibold">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MESSAGE INFO MODAL -->
+    <div id="msg-info-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-[#121216] border border-gray-800 rounded-xl p-5 w-full max-w-xs relative text-xs text-gray-300 space-y-2">
+            <div class="flex justify-between items-center mb-2 border-b border-gray-800 pb-2">
+                <h3 class="font-semibold text-white">Message Info</h3>
+                <button onclick="closeMsgInfoModal()" class="text-gray-400 hover:text-white">✕</button>
+            </div>
+            <p><strong>Sent At:</strong> <span id="info-time">-</span></p>
+            <p><strong>Status:</strong> <span id="info-status">-</span></p>
+            <p><strong>Message ID:</strong> <span id="info-id">-</span></p>
+        </div>
+    </div>
+
     <!-- JavaScript Actions -->
     <script>
         let activeReceiverId = null;
         let activeReceiverUsername = null;
         let pollingInterval = null;
-        // Read verified status safely from body data attribute (No linter errors!)
         let isUserVerified = document.body.getAttribute('data-verified') === '1';
+        let currentMyUserId = parseInt(document.body.getAttribute('data-current-user-id')) || 0;
+        let currentSelectedMsg = null;
+
+        window.addEventListener('click', () => {
+            const menu = document.getElementById('msg-context-menu');
+            if (menu) menu.classList.add('hidden');
+        });
 
         function toggleNewChatModal() {
             document.getElementById('new-chat-modal').classList.toggle('hidden');
@@ -296,12 +343,10 @@
             document.getElementById('active-username').innerText = username;
             document.getElementById('active-user-avatar').innerText = username[0].toUpperCase();
 
-            // Populate Slide Panel info
             document.getElementById('panel-username').innerText = username;
             document.getElementById('panel-avatar').innerText = username[0].toUpperCase();
             document.getElementById('panel-view-profile').href = `/app/${username}`;
 
-            // Show Recover Chat button only if current user is verified
             if (isUserVerified) {
                 document.getElementById('panel-recover-btn').classList.remove('hidden');
             }
@@ -327,7 +372,6 @@
                     const box = document.getElementById('messages-box');
                     const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
 
-                    // Handle blocking states
                     const banner = document.getElementById('blocked-banner');
                     const inputContainer = document.getElementById('input-container');
                     const blockBtnText = document.getElementById('block-btn-text');
@@ -347,7 +391,6 @@
                     }
 
                     box.innerHTML = '';
-                    // Correctly read 'messages' array from returned dictionary
                     const msgs = data.messages || [];
 
                     if (msgs.length === 0) {
@@ -365,7 +408,7 @@
                         const timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                         const div = document.createElement('div');
-                        div.className = `max-w-[75%] md:max-w-[65%] px-4 py-2.5 text-xs ${alignClass}`;
+                        div.className = `max-w-[75%] md:max-w-[65%] px-4 py-2.5 text-xs ${alignClass} cursor-pointer group`;
                         div.innerHTML = `
                             <div class="break-words leading-relaxed">${msg.message}</div>
                             <div class="flex items-center justify-end gap-1.5 mt-1 text-[9px] opacity-75">
@@ -373,6 +416,34 @@
                                 ${isMe ? `<span>${msg.is_seen ? '✓✓' : '✓'}</span>` : ''}
                             </div>
                         `;
+
+                        // Right-click context menu event listener
+                        div.addEventListener('contextmenu', (e) => {
+                            e.preventDefault();
+                            currentSelectedMsg = {
+                                id: msg.id,
+                                text: msg.message,
+                                senderId: msg.sender_id,
+                                timestamp: msg.timestamp,
+                                isSeen: msg.is_seen
+                            };
+
+                            const menu = document.getElementById('msg-context-menu');
+                            if (menu) {
+                                const editBtn = document.getElementById('ctx-edit-btn');
+                                // Only allow editing own messages
+                                if (Number(msg.sender_id) === currentMyUserId) {
+                                    editBtn.style.display = 'flex';
+                                } else {
+                                    editBtn.style.display = 'none';
+                                }
+
+                                menu.style.top = `${e.clientY}px`;
+                                menu.style.left = `${e.clientX}px`;
+                                menu.classList.remove('hidden');
+                            }
+                        });
+
                         box.appendChild(div);
                     });
 
@@ -380,6 +451,69 @@
                         box.scrollTop = box.scrollHeight;
                     }
                 });
+        }
+
+        // Context Menu Actions
+        function openEditMessageModal() {
+            if (!currentSelectedMsg) return;
+            document.getElementById('edit-msg-input').value = currentSelectedMsg.text;
+            document.getElementById('edit-msg-modal').classList.remove('hidden');
+        }
+
+        function closeEditMsgModal() {
+            document.getElementById('edit-msg-modal').classList.add('hidden');
+        }
+
+        function submitEditedMessage() {
+            if (!currentSelectedMsg) return;
+            const newText = document.getElementById('edit-msg-input').value.trim();
+            if (!newText) return;
+
+            fetch('/api/message/edit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: currentSelectedMsg.id, new_text: newText })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    closeEditMsgModal();
+                    fetchMessages();
+                } else {
+                    alert(data.message || 'Failed to edit message.');
+                }
+            });
+        }
+
+        function openMessageInfoModal() {
+            if (!currentSelectedMsg) return;
+            document.getElementById('info-time').innerText = new Date(currentSelectedMsg.timestamp).toLocaleString();
+            document.getElementById('info-status').innerText = currentSelectedMsg.isSeen ? 'Seen ✓✓' : 'Sent ✓';
+            document.getElementById('info-id').innerText = currentSelectedMsg.id;
+            document.getElementById('msg-info-modal').classList.remove('hidden');
+        }
+
+        function closeMsgInfoModal() {
+            document.getElementById('msg-info-modal').classList.add('hidden');
+        }
+
+        function deleteMessageAction() {
+            if (!currentSelectedMsg) return;
+            if (!confirm('Are you sure you want to delete this message?')) return;
+
+            fetch('/api/message/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message_id: currentSelectedMsg.id })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    fetchMessages();
+                } else {
+                    alert(data.message || 'Failed to delete message.');
+                }
+            });
         }
 
         function handleMessageSubmit(e) {
@@ -402,7 +536,6 @@
             });
         }
 
-        // Slide panel action functions
         function toggleBlockStatus() {
             const blockBtnText = document.getElementById('block-btn-text').innerText;
             const endpoint = blockBtnText.includes('Unblock') ? '/api/unblock_user' : '/api/block_user';
@@ -424,7 +557,7 @@
         }
 
         function deleteCurrentChat() {
-            if (!confirm("Are you sure you want to delete this chat? All messages will be hidden and the chat will vanish from your inbox.")) return;
+            if (!confirm("Are you sure you want to delete this chat?")) return;
 
             fetch('/api/delete_chat', {
                 method: 'POST',
@@ -461,7 +594,6 @@
             });
         }
 
-        // Sidebar Chat List Real-time polling
         setInterval(() => {
             fetch('/api/chat_list')
                 .then(res => res.json())

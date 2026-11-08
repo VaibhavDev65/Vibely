@@ -384,6 +384,7 @@ def edit_message():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # API: Local Delete Message (Sets delete_status = 1)
+# API: Delete Message (Sets deleted = 1 as requested)
 @app.route('/api/message/delete', methods=['POST'])
 def delete_message():
     data = request.json
@@ -392,8 +393,7 @@ def delete_message():
     
     cursor = mysql.connection.cursor()
     try:
-        # User can delete their own message locally from their view
-        cursor.execute("UPDATE messages SET delete_status = 1 WHERE id = %s AND (sender_id = %s OR receiver_id = %s)", (msg_id, user_id, user_id))
+        cursor.execute("UPDATE messages SET deleted = 1 WHERE id = %s AND (sender_id = %s OR receiver_id = %s)", (msg_id, user_id, user_id))
         mysql.connection.commit()
         cursor.close()
         return jsonify({"status": "success"})
