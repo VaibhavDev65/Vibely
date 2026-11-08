@@ -50,7 +50,7 @@
                 <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
             </button>
 
-            <!-- Settings list ke andar ye option add karein -->
+            <!-- Account Privacy -->
             <div
                 class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 border border-gray-800 transition">
                 <div class="flex items-center gap-3">
@@ -66,7 +66,7 @@
                 </label>
             </div>
 
-            <!-- 2. Edit Account Button (Opens Dialog Box Directly) -->
+            <!-- 2. Edit Account Button -->
             <button type="button" onclick="toggleEditModal()"
                 class="w-full flex items-center justify-between p-4 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-800 transition text-left cursor-pointer">
                 <div class="flex items-center gap-3">
@@ -86,7 +86,7 @@
                 <i class="fa-solid fa-chevron-right text-gray-500 text-xs"></i>
             </button>
 
-            <!-- 4. Logout Button (Always at the end) -->
+            <!-- 4. Logout Button -->
             <a href="/logout"
                 class="w-full flex items-center justify-between p-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition text-red-400">
                 <div class="flex items-center gap-3">
@@ -108,6 +108,7 @@
             <div class="space-y-3 text-sm text-gray-300">
                 <p><strong>Username:</strong> {{ current_user.username if current_user.username else 'None' }}</p>
                 <p><strong>Name:</strong> {{ current_user.name if current_user.name else 'None' }}</p>
+                <p><strong>Email:</strong> {{ current_user.email if current_user.email else 'None' }}</p>
                 <p><strong>Date of Birth (DOB):</strong> {{ current_user.dob if current_user.dob else 'None' }}</p>
                 <p><strong>Bio:</strong> {{ current_user.bio if current_user.bio else 'None' }}</p>
                 <p><strong>Verified Status:</strong> {{ 'Verified' if current_user.verified else 'None' }}</p>
@@ -132,6 +133,12 @@
                 <div>
                     <label class="block text-xs text-gray-400 mb-1">Username</label>
                     <input type="text" id="edit-username" value="{{ current_user.username }}"
+                        class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none"
+                        required>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Email Address (Gmail)</label>
+                    <input type="email" id="edit-email" value="{{ current_user.email if current_user.email else '' }}"
                         class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-700 text-sm text-white focus:outline-none"
                         required>
                 </div>
@@ -175,6 +182,7 @@
             e.preventDefault();
             const name = document.getElementById('edit-name').value;
             const username = document.getElementById('edit-username').value;
+            const email = document.getElementById('edit-email').value;
             const bio = document.getElementById('edit-bio').value;
             const dob = document.getElementById('edit-dob').value;
             const gender = document.getElementById('edit-gender').value;
@@ -182,12 +190,11 @@
             fetch('/api/update_profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, username, bio, dob, gender })
+                body: JSON.stringify({ name, username, email, bio, dob, gender })
             })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        // Update ke baad changes dikhane ke liye page reload hoga
                         window.location.reload();
                     } else {
                         alert(data.message || 'Failed to update profile');
@@ -207,7 +214,7 @@
             .then(data => {
                 if (data.status !== 'success') {
                     alert('Failed to update privacy setting');
-                    checkbox.checked = !is_private; // Revert on failure
+                    checkbox.checked = !is_private;
                 }
             });
         }

@@ -95,7 +95,7 @@
                             {% endif %}
                         </h2>
 
-                        <div class="flex items-center gap-2 flex-wrap justify-center">
+                        <div class="flex items-center gap-2 flex-wrap justify-center relative">
                             {% if is_my_profile %}
                             <a href="/app/settings"
                                 class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2">
@@ -115,6 +115,25 @@
                             </button>
                             <a href="/inbox?chat_with={{ profile_user.id }}&username={{ profile_user.username }}"
                                 class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition">Message</a>
+                            
+                            <!-- 3 DOT MENU BUTTON & DROPDOWN -->
+                            <div class="relative">
+                                <button onclick="toggleProfileMenu(event)"
+                                    class="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <!-- Dropdown Box -->
+                                <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-44 bg-[#16161c] border border-gray-800 rounded-xl shadow-xl z-50 overflow-hidden text-left">
+                                    <button onclick="toggleAboutModal(); toggleProfileMenu(event);"
+                                        class="w-full px-4 py-2.5 text-xs text-gray-200 hover:bg-gray-800 flex items-center gap-2.5 transition">
+                                        <i class="fa-solid fa-circle-info text-indigo-400"></i> About Account
+                                    </button>
+                                    <button onclick="blockUserProfile('{{ profile_user.id }}')"
+                                        class="w-full px-4 py-2.5 text-xs text-red-400 hover:bg-red-500/10 flex items-center gap-2.5 transition border-t border-gray-800/60">
+                                        <i class="fa-solid fa-ban"></i> Block User
+                                    </button>
+                                </div>
+                            </div>
                             {% endif %}
                         </div>
                     </div>
@@ -149,7 +168,6 @@
             </div>
 
             <!-- POSTS GRID -->
-            <!-- POSTS GRID / PRIVATE MESSAGE -->
             {% if can_view %}
             <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mt-4">
                 {% if posts %}
@@ -271,13 +289,45 @@
 
     <!-- JAVASCRIPT -->
     <script>
+        function toggleProfileMenu(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('profile-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', () => {
+            const dropdown = document.getElementById('profile-dropdown');
+            if (dropdown && !dropdown.classList.contains('hidden')) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        function blockUserProfile(userId) {
+            if (!confirm("Are you sure you want to block this user?")) return;
+
+            fetch('/api/block_user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: userId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('User blocked successfully.');
+                    window.location.href = '/home';
+                } else {
+                    alert('Failed to block user.');
+                }
+            });
+        }
+
         function openUserList(type, userId) {
             const meta = document.getElementById('profile-meta');
             const isPrivate = meta.dataset.isPrivate === 'true';
             const isMyProfile = meta.dataset.isMyProfile === 'true';
             const theyFollowMe = meta.dataset.theyFollowMe === 'true';
 
-            // Agar account private hai, apni profile nahi hai, aur wo humein follow nahi karte hain
             if (isPrivate && !isMyProfile && !theyFollowMe) {
                 alert('This account is private. They must follow you to see their followers and followings.');
                 return;
@@ -379,7 +429,6 @@
                 });
         }
 
-        // Global Unread Message Checker for Home and Profile Navigation
         function checkGlobalUnreadMessages() {
             fetch('/api/unread_status')
                 .then(res => res.json())

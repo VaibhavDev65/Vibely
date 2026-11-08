@@ -103,14 +103,27 @@ def signup():
     username = request.form['username']
     email = request.form['email']
     password = request.form['password']
+    gender = request.form.get('gender', 'others')
     
     try:
         cursor = mysql.connection.cursor()
-        cursor.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s)", 
-                       (username, email, password))
+        cursor.execute("INSERT INTO users (username, email, password, gender) VALUES (%s, %s, %s, %s)", 
+                       (username, email, password, gender))
         mysql.connection.commit()
+        
+        # Newly created user ka ID fetch karein auto-login ke liye
+        user_id = cursor.lastrowid
         cursor.close()
-        return redirect(url_for('login'))
+        
+        # Session set karein
+        session['user_id'] = user_id
+        session['username'] = username
+        
+        # Cookie set karke seedha home page par redirect karein (Auto Login)
+        resp = make_response(redirect(url_for('home')))
+        resp.set_cookie('vibely_session_id', str(user_id), max_age=60*60*24*7) # 7 days
+        return resp
+        
     except Exception as e:
         print("Signup Error:", str(e))
         return render_template('login.html', error=f"Error: {str(e)}")
@@ -127,15 +140,14 @@ def chat_dashboard():
     cursor = mysql.connection.cursor()
     user_id = session['user_id']
     
-    # Fetch chatted users ordered by latest message timestamp, with unread prioritization
     cursor.execute("""
         SELECT u.id, u.username, u.verified,
                MAX(m.timestamp) as last_time,
-               SUM(CASE WHEN m.receiver_id = %s AND m.is_seen = 0 AND m.delete_status = 0 THEN 1 ELSE 0 END) as unread_count
+               SUM(CASE WHEN m.receiver_id = %s AND m.is_seen = 0 AND m.delete_status = 0 AND m.deleted = 0 THEN 1 ELSE 0 END) as unread_count
         FROM users u 
         JOIN messages m ON (u.id = m.sender_id OR u.id = m.receiver_id)
-        WHERE (m.sender_id = %s OR m.receiver_id = %s) AND u.id != %s
-        GROUP BY u.id, u.username, u.verified
+        WHERE (m.sender_id = %s OR m.receiver_id = %s) AND u.id != %s AND m.deleted = 0
+        GROUP BY u.id, u.username, u.verified, u.name
         ORDER BY unread_count DESC, last_time DESC
     """, (user_id, user_id, user_id, user_id))
     chat_users = cursor.fetchall()
@@ -143,7 +155,8 @@ def chat_dashboard():
     cursor.execute("SELECT id, username FROM users WHERE id != %s", (user_id,))
     all_users = cursor.fetchall()
     
-    cursor.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+    # Select all columns so verified status is available
+    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     current_user = cursor.fetchone()
     cursor.close()
     
@@ -313,7 +326,15 @@ def get_messages(receiver_id):
     sender_id = session['user_id']
     cursor = mysql.connection.cursor()
     
-    # Mark incoming messages as seen when chat is opened/fetched
+    # Check block statuses
+    cursor.execute("SELECT * FROM blocked_accounts WHERE (blocker_id = %s AND blocked_id = %s) OR (blocker_id = %s AND blocked_id = %s)", 
+                   (sender_id, receiver_id, receiver_id, sender_id))
+    blocks = cursor.fetchall()
+    
+    i_blocked_them = any(b['blocker_id'] == sender_id for b in blocks)
+    they_blocked_me = any(b['blocker_id'] == receiver_id for b in blocks)
+    
+    # Mark incoming messages as seen
     cursor.execute("""
         UPDATE messages 
         SET is_seen = 1 
@@ -321,16 +342,28 @@ def get_messages(receiver_id):
     """, (receiver_id, sender_id))
     mysql.connection.commit()
 
-    # Fetch only non-deleted messages
+    # Fetch active non-deleted messages
     cursor.execute("""
         SELECT * FROM messages 
         WHERE ((sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s))
-          AND delete_status = 0 
+          AND delete_status = 0 AND deleted = 0
         ORDER BY timestamp ASC
     """, (sender_id, receiver_id, receiver_id, sender_id))
     messages = cursor.fetchall()
+    
+    # Fetch recipient details including verified status & handle
+    cursor.execute("SELECT id, username, verified, name FROM users WHERE id = %s", (receiver_id,))
+    recipient = cursor.fetchone()
+    
     cursor.close()
-    return jsonify(messages)
+    
+    return jsonify({
+        "messages": messages,
+        "i_blocked_them": i_blocked_them,
+        "they_blocked_me": they_blocked_me,
+        "recipient": recipient,
+        "current_user_verified": session.get('user_verified', False) # ya user query se
+    })
 
 # API: Edit Message
 @app.route('/api/message/edit', methods=['POST'])
@@ -620,6 +653,7 @@ def update_profile():
         
     name = data.get('name', 'Vibely Member')
     new_username = data.get('username')
+    new_email = data.get('email')
     bio = data.get('bio', '')
     dob = data.get('dob') or None
     gender = data.get('gender', 'others')
@@ -632,11 +666,16 @@ def update_profile():
             cursor.close()
             return jsonify({"status": "error", "message": "Username already taken!"}), 400
 
+        cursor.execute("SELECT id FROM users WHERE email = %s AND id != %s", (new_email, user_id))
+        if cursor.fetchone():
+            cursor.close()
+            return jsonify({"status": "error", "message": "Email already in use!"}), 400
+
         cursor.execute("""
             UPDATE users 
-            SET name = %s, username = %s, bio = %s, dob = %s, gender = %s, is_private = %s 
+            SET name = %s, username = %s, email = %s, bio = %s, dob = %s, gender = %s, is_private = %s 
             WHERE id = %s
-        """, (name, new_username, bio, dob, gender, is_private, user_id))
+        """, (name, new_username, new_email, bio, dob, gender, is_private, user_id))
         
         mysql.connection.commit()
         cursor.close()
@@ -647,20 +686,111 @@ def update_profile():
         cursor.close()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/block_user', methods=['POST'])
+def block_user():
+    data = request.json
+    my_id = session.get('user_id')
+    target_id = data.get('target_id')
+    if not my_id or not target_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 400
+    
+    cursor = mysql.connection.cursor()
+    try:
+        cursor.execute("INSERT IGNORE INTO blocked_accounts (blocker_id, blocked_id) VALUES (%s, %s)", (my_id, target_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success", "action": "blocked"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/unblock_user', methods=['POST'])
+def unblock_user():
+    data = request.json
+    my_id = session.get('user_id')
+    target_id = data.get('target_id')
+    if not my_id or not target_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 400
+        
+    cursor = mysql.connection.cursor()
+    try:
+        cursor.execute("DELETE FROM blocked_accounts WHERE blocker_id = %s AND blocked_id = %s", (my_id, target_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success", "action": "unblocked"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/delete_chat', methods=['POST'])
+def delete_chat():
+    data = request.json
+    my_id = session.get('user_id')
+    target_id = data.get('target_id')
+    if not my_id or not target_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 400
+        
+    cursor = mysql.connection.cursor()
+    try:
+        # Set deleted = 1 for all messages between these users
+        cursor.execute("""
+            UPDATE messages 
+            SET deleted = 1 
+            WHERE ((sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s))
+        """, (my_id, target_id, target_id, my_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/recover_chat', methods=['POST'])
+def recover_chat():
+    data = request.json
+    my_id = session.get('user_id')
+    target_id = data.get('target_id')
+    if not my_id or not target_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 400
+        
+    cursor = mysql.connection.cursor()
+    try:
+        # Verify if user is verified
+        cursor.execute("SELECT verified FROM users WHERE id = %s", (my_id,))
+        user = cursor.fetchone()
+        
+        if not user or not user.get('verified'):
+            cursor.close()
+            return jsonify({"status": "error", "message": "Only verified users can recover chats!"}), 403
+            
+        # Set deleted = 0 back
+        cursor.execute("""
+            UPDATE messages 
+            SET deleted = 0 
+            WHERE ((sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s))
+        """, (my_id, target_id, target_id, my_id))
+        mysql.connection.commit()
+        cursor.close()
+        return jsonify({"status": "success"})
+    except Exception as e:
+        cursor.close()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/api/chat_list')
 def api_chat_list():
     user_id = session.get('user_id')
     if not user_id:
         return jsonify([])
     cursor = mysql.connection.cursor()
+    # Only list chats where there is at least one non-deleted message
     cursor.execute("""
-        SELECT u.id, u.username, u.verified,
+        SELECT u.id, u.username, u.verified, u.name,
                MAX(m.timestamp) as last_time,
-               SUM(CASE WHEN m.receiver_id = %s AND m.is_seen = 0 AND m.delete_status = 0 THEN 1 ELSE 0 END) as unread_count
+               SUM(CASE WHEN m.receiver_id = %s AND m.is_seen = 0 AND m.delete_status = 0 AND m.deleted = 0 THEN 1 ELSE 0 END) as unread_count
         FROM users u 
         JOIN messages m ON (u.id = m.sender_id OR u.id = m.receiver_id)
-        WHERE (m.sender_id = %s OR m.receiver_id = %s) AND u.id != %s
-        GROUP BY u.id, u.username, u.verified
+        WHERE (m.sender_id = %s OR m.receiver_id = %s) AND u.id != %s AND m.deleted = 0
+        GROUP BY u.id, u.username, u.verified, u.name
         ORDER BY unread_count DESC, last_time DESC
     """, (user_id, user_id, user_id, user_id))
     chat_users = cursor.fetchall()

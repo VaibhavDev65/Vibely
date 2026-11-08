@@ -10,218 +10,256 @@
     <link rel="shortcut icon" href="{{ url_for('static', filename='assets/logo.png') }}" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
         * {
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
         body {
-            background-color: #0b0b0f;
-            color: #fff;
+            background-color: #070709;
+            color: #f3f4f6;
         }
 
-        .glass-sidebar {
-            background: rgba(18, 18, 24, 0.95);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        .glass-panel {
+            background: rgba(17, 17, 24, 0.85);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(255, 255, 255, 0.06);
         }
 
-        .chat-bg {
-            background-color: #121216;
+        .chat-area-bg {
+            background: radial-gradient(circle at top right, #13131f 0%, #09090e 100%);
         }
 
-        /* Message bubble hover container */
-        .msg-bubble:hover .msg-options-btn {
-            opacity: 1;
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        #slide-panel {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
     </style>
 </head>
 
-<body class="h-[100dvh] flex overflow-hidden">
+<body class="h-[100dvh] flex overflow-hidden" data-verified="{{ '1' if current_user.verified else '0' }}">
 
     <!-- LEFT SIDEBAR: Active Conversations -->
-    <div id="sidebar-container" class="w-full md:w-[35%] lg:w-[30%] glass-sidebar flex flex-col h-full relative z-10 flex-shrink-0">
+    <div id="sidebar-container" class="w-full md:w-[360px] lg:w-[400px] glass-panel flex flex-col h-full relative z-20 flex-shrink-0">
 
         <!-- User Profile Header -->
-        <div class="p-4 border-b border-gray-800 flex justify-between items-center flex-shrink-0">
-            <div class="flex items-center gap-2 cursor-pointer">
-                <h1 class="font-bold text-lg text-white truncate max-w-[150px]">{{ current_user.username }}</h1>
-            </div>
+        <div class="p-4 border-b border-gray-800/80 flex justify-between items-center flex-shrink-0 bg-gray-950/40">
             <div class="flex items-center gap-3">
-                <a href="/home" title="Home Feed" class="text-gray-300 hover:text-white p-1">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
-                        </path>
-                    </svg>
+                <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center font-bold text-white shadow-md">
+                    {{ current_user.username[0] | upper }}
+                </div>
+                <div>
+                    <h1 class="font-bold text-sm text-white truncate max-w-[140px]">{{ current_user.username }}</h1>
+                    <span class="text-[10px] text-emerald-400 font-medium flex items-center gap-1">● Active now</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="/home" title="Home Feed" class="w-9 h-9 rounded-xl bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-800 transition">
+                    <i class="fa-solid fa-house text-xs"></i>
                 </a>
-                <button onclick="toggleNewChatModal()" title="New Message" class="text-gray-300 hover:text-white p-1">
-                    <svg aria-label="New message" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                        <path
-                            d="M12.202 3.203H5.25a3 3 0 0 0-3 3V18.75a3 3 0 0 0 3 3h12.75a3 3 0 0 0 3-3V11.5a1 1 0 1 0-2 0v7.25a1 1 0 0 1-1 1H5.25a1 1 0 0 1-1-1V6.25a1 1 0 0 1 1-1h6.952a1 1 0 0 0 0-2Z">
-                        </path>
-                        <path
-                            d="M22.832 3.449a3.022 3.022 0 0 0-4.28 0l-9.11 9.11a1.05 1.05 0 0 0-.265.467l-1.02 4.417a1.05 1.05 0 0 0 1.272 1.272l4.417-1.02a1.05 1.05 0 0 0 .467-.265l9.11-9.11a3.022 3.022 0 0 0 0-4.28Zm-3.568 2.132l-7.79 7.79-.395 1.71 1.71-.395 7.79-7.79a1.022 1.022 0 0 1 1.446 0 .998.998 0 0 1 0 1.446Z">
-                        </path>
-                    </svg>
+                <button onclick="toggleNewChatModal()" title="New Message" class="w-9 h-9 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/20 hover:opacity-90 transition">
+                    <i class="fa-solid fa-pen-to-square text-xs"></i>
                 </button>
             </div>
         </div>
 
         <!-- Search Bar -->
-        <div class="p-3 border-b border-gray-800 flex-shrink-0">
-            <input type="text" id="chat-search" placeholder="Search messages..." onkeyup="filterChats()"
-                class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none focus:border-gray-600">
+        <div class="p-3 border-b border-gray-800/60 flex-shrink-0">
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-xs text-gray-500"></i>
+                <input type="text" id="chat-search" placeholder="Search conversations..." onkeyup="filterChats()"
+                    class="w-full pl-9 pr-4 py-2.5 rounded-xl bg-gray-900/90 border border-gray-800 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition">
+            </div>
         </div>
 
         <!-- Section Title -->
-        <div class="px-4 py-2 flex justify-between items-center flex-shrink-0">
-            <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Messages</span>
+        <div class="px-4 py-2.5 flex justify-between items-center flex-shrink-0 text-gray-400">
+            <span class="text-[11px] font-bold uppercase tracking-wider">Direct Messages</span>
+            <i class="fa-solid fa-comments text-xs"></i>
         </div>
 
         <!-- Chatted Accounts List -->
-        <div class="overflow-y-auto flex-1 divide-y divide-gray-900/50" id="chat-list">
+        <div class="overflow-y-auto flex-1 divide-y divide-gray-900/40 px-2 py-1" id="chat-list">
             {% if chat_users %}
             {% for acc in chat_users %}
             <div onclick="openChat('{{ acc.id }}', '{{ acc.username }}')"
-                class="all-user-card flex items-center justify-between p-3.5 hover:bg-gray-800/60 cursor-pointer transition"
+                class="all-user-card flex items-center justify-between p-3 rounded-xl hover:bg-gray-800/50 cursor-pointer transition mb-1 group"
                 data-username="{{ acc.username | lower }}" id="user-item-{{ acc.id }}">
                 <div class="flex items-center gap-3">
-                    <div
-                        class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                    <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow">
                         {{ acc.username[0] | upper }}
                     </div>
                     <div>
-                        <h3 class="text-sm font-medium text-gray-200 flex items-center gap-1">
+                        <h3 class="text-sm font-semibold text-gray-200 group-hover:text-white flex items-center gap-1.5">
                             {{ acc.username }}
                             {% if acc.verified %}
-                            <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}"
-                                class="w-3.5 h-3.5 inline" alt="Verified">
+                            <img src="{{ url_for('static', filename='assets/verified_badge.svg') }}" class="w-3.5 h-3.5 inline" alt="Verified">
                             {% endif %}
                         </h3>
+                        <p class="text-[11px] text-gray-400 truncate max-w-[160px]">Tap to view conversation</p>
                     </div>
                 </div>
-                <span
-                    class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0">Message</span>
             </div>
             {% endfor %}
             {% else %}
-            <div class="p-6 text-center text-gray-500 text-sm mt-10">
-                <p>No conversations yet.</p>
-                <p class="text-xs text-indigo-400 mt-2 cursor-pointer" onclick="toggleNewChatModal()">Start a new chat +
-                </p>
+            <div class="p-8 text-center text-gray-500 text-xs mt-10">
+                <div class="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center mx-auto mb-3 text-gray-600 text-lg">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </div>
+                <p class="font-medium text-gray-400">No conversations yet</p>
+                <p class="text-indigo-400 mt-1 cursor-pointer hover:underline" onclick="toggleNewChatModal()">Start your first chat</p>
             </div>
             {% endif %}
         </div>
 
         <!-- Logout Footer -->
-        <div class="p-3 border-t border-gray-800 flex-shrink-0">
-            <a href="/logout"
-                class="block text-center text-xs text-red-400 hover:text-red-300 py-2 bg-red-500/10 rounded-lg border border-red-500/20 transition">Log
-                Out</a>
+        <div class="p-3 border-t border-gray-800/80 flex-shrink-0 bg-gray-950/20">
+            <a href="/logout" class="flex items-center justify-center gap-2 text-xs font-semibold text-red-400 hover:text-red-300 py-2.5 bg-red-500/10 rounded-xl border border-red-500/20 transition">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Sign Out
+            </a>
         </div>
 
         <!-- NEW CHAT MODAL -->
-        <div id="new-chat-modal" class="absolute inset-0 bg-[#0b0b0f]/95 z-50 flex flex-col hidden">
+        <div id="new-chat-modal" class="absolute inset-0 bg-[#070709]/95 z-50 flex flex-col hidden backdrop-blur-md">
             <div class="p-4 border-b border-gray-800 flex justify-between items-center flex-shrink-0">
-                <h3 class="font-semibold text-sm">New Message</h3>
-                <button onclick="toggleNewChatModal()"
-                    class="text-gray-400 hover:text-white text-sm font-bold p-1">✕</button>
+                <h3 class="font-bold text-sm text-white">New Message</h3>
+                <button onclick="toggleNewChatModal()" class="w-7 h-7 rounded-lg bg-gray-900 text-gray-400 hover:text-white flex items-center justify-center text-xs">✕</button>
             </div>
             <div class="p-3 border-b border-gray-800 flex-shrink-0">
-                <input type="text" id="modal-search" placeholder="Search all users..." onkeyup="filterAllUsers()"
-                    class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-800 text-sm text-white focus:outline-none">
+                <input type="text" id="modal-search" placeholder="Search people..." onkeyup="filterAllUsers()"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-gray-900 border border-gray-800 text-xs text-white focus:outline-none focus:border-indigo-500">
             </div>
-            <div class="overflow-y-auto flex-1 divide-y divide-gray-900" id="all-users-list">
+            <div class="overflow-y-auto flex-1 divide-y divide-gray-900/50 p-2" id="all-users-list">
                 {% for acc in all_users %}
                 <div onclick="openChat('{{ acc.id }}', '{{ acc.username }}'); toggleNewChatModal();"
-                    class="all-user-card flex items-center gap-3 p-3.5 hover:bg-gray-800/60 cursor-pointer transition"
+                    class="all-user-card flex items-center gap-3 p-3 rounded-xl hover:bg-gray-800/60 cursor-pointer transition"
                     data-username="{{ acc.username | lower }}">
-                    <div
-                        class="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center font-bold text-white text-xs">
                         {{ acc.username[0] | upper }}
                     </div>
                     <div>
-                        <h3 class="text-sm font-medium text-gray-200">{{ acc.username }}</h3>
+                        <h3 class="text-xs font-semibold text-gray-200">{{ acc.username }}</h3>
                     </div>
                 </div>
                 {% endfor %}
             </div>
         </div>
-
     </div>
 
     <!-- RIGHT ACTIVE CHAT WINDOW -->
-    <div class="hidden md:flex flex-1 flex-col h-full chat-bg" id="chat-container">
-        <!-- Initial State -->
-        <div id="no-chat-selected"
-            class="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500">
-            <div class="w-20 h-20 border-2 border-gray-700 rounded-full flex items-center justify-center mb-4">
-                <svg aria-label="Icon" class="w-10 h-10 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path
-                        d="M12.003 2.001a9.997 9.997 0 1 0 9.997 9.997 9.999 9.999 0 0 0-9.997-9.997Zm0 1.8A8.197 8.197 0 1 1 3.806 12a8.2 8.2 0 0 1 8.197-8.199Zm1.1 4.399v5.399a.9.9 0 0 1-1.8 0V8.2a.9.9 0 0 1 1.8 0Zm0 7.2v1.8a.9.9 0 1 1-1.8 0v-1.8a.9.9 0 1 1 1.8 0Z">
-                    </path>
-                </svg>
+    <div class="hidden md:flex flex-1 flex-col h-full chat-area-bg relative overflow-hidden" id="chat-container">
+        <!-- Initial State (No Chat Selected) -->
+        <div id="no-chat-selected" class="flex-1 flex flex-col items-center justify-center text-center p-6 text-gray-500">
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-indigo-600/20 to-pink-600/20 border border-indigo-500/20 flex items-center justify-center mb-4 text-indigo-400 text-2xl shadow-xl">
+                <i class="fa-solid fa-comments"></i>
             </div>
-            <h2 class="text-lg font-semibold text-gray-300">Your Messages</h2>
-            <p class="text-sm mb-4">Send private photos and messages to a friend.</p>
-            <button onclick="toggleNewChatModal()"
-                class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">Send
-                Message</button>
+            <h2 class="text-base font-bold text-gray-300">Your Messages</h2>
+            <p class="text-xs text-gray-500 mb-5 max-w-xs">Send private notes, thoughts and vibes to your friends securely.</p>
+            <button onclick="toggleNewChatModal()" class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2.5 rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/25 hover:opacity-95 transition">
+                Start Chatting
+            </button>
         </div>
 
         <!-- Active Chat Area -->
-        <div id="active-chat-area" class="flex-1 flex flex-col hidden h-full overflow-hidden">
+        <div id="active-chat-area" class="flex-1 flex flex-col hidden h-full overflow-hidden relative">
             <!-- Chat Header -->
-            <div class="p-4 border-b border-gray-800 flex items-center gap-3 bg-[#121216] flex-shrink-0">
-                <!-- Back Button for Mobile -->
-                <button onclick="closeActiveChatMobile()" class="md:hidden text-gray-400 hover:text-white mr-2">
-                    <i class="fa-solid fa-arrow-left text-lg"></i>
-                </button>
-                <div id="active-user-avatar"
-                    class="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">A
+            <div class="px-5 py-3.5 border-b border-gray-800/80 flex items-center justify-between bg-gray-950/60 backdrop-blur-md flex-shrink-0 z-10">
+                <div class="flex items-center gap-3 cursor-pointer group" onclick="toggleSlidePanel()">
+                    <button onclick="closeActiveChatMobile(); event.stopPropagation();" class="md:hidden text-gray-400 hover:text-white mr-1">
+                        <i class="fa-solid fa-arrow-left text-sm"></i>
+                    </button>
+                    <div id="active-user-avatar" class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center font-bold text-xs text-white shadow">
+                        A
+                    </div>
+                    <div>
+                        <h2 id="active-username" class="font-bold text-xs text-white group-hover:text-indigo-400 transition">Username</h2>
+                        <span class="text-[10px] text-gray-400">Click for chat options</span>
+                    </div>
                 </div>
-                <h2 id="active-username" class="font-semibold text-sm text-white truncate">Username</h2>
+                <button onclick="toggleSlidePanel()" class="w-9 h-9 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 hover:text-white flex items-center justify-center text-xs transition">
+                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                </button>
+            </div>
+
+            <!-- Block Banner -->
+            <div id="blocked-banner" class="hidden bg-red-500/10 border-b border-red-500/20 px-4 py-3 text-center text-xs text-red-400 font-medium flex-shrink-0">
+                <i class="fa-solid fa-ban mr-1.5"></i> You have been blocked by the recipient.
             </div>
 
             <!-- Messages Scroll Box -->
-            <div id="messages-box" class="flex-1 overflow-y-auto p-4 space-y-3 flex flex-col">
-                <!-- Messages loaded dynamically -->
+            <div id="messages-box" class="flex-1 overflow-y-auto p-5 space-y-3 flex flex-col">
+                <!-- Dynamic messages -->
             </div>
 
             <!-- Message Input Form -->
-            <div class="p-3 md:p-4 border-t border-gray-800 bg-[#121216] flex-shrink-0">
-                <form id="send-form" onsubmit="handleMessageSubmit(event)" class="flex gap-2">
-                    <input type="text" id="message-input" placeholder="Message..." autocomplete="off"
-                        class="flex-1 px-4 py-3 rounded-full bg-gray-900 border border-gray-700 text-white text-sm focus:outline-none focus:border-indigo-500">
+            <div id="input-container" class="p-4 border-t border-gray-800/80 bg-gray-950/80 backdrop-blur-md flex-shrink-0">
+                <form id="send-form" onsubmit="handleMessageSubmit(event)" class="flex gap-2.5 items-center">
+                    <input type="text" id="message-input" placeholder="Type your message..." autocomplete="off"
+                        class="flex-1 px-4 py-3 rounded-2xl bg-gray-900 border border-gray-800 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition">
                     <button type="submit" id="send-btn"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-full text-sm font-semibold transition shrink-0">Send</button>
+                        class="bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 text-white px-5 py-3 rounded-2xl text-xs font-semibold transition shrink-0 shadow-lg shadow-indigo-600/20 flex items-center gap-1.5">
+                        <span>Send</span> <i class="fa-solid fa-paper-plane text-[10px]"></i>
+                    </button>
                 </form>
             </div>
         </div>
-    </div>
 
-    <!-- MESSAGE INFO MODAL -->
-    <div id="msg-info-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden" onclick="closeMsgInfoModal()">
-        <div class="bg-[#121216] border border-gray-800 rounded-xl p-6 w-full max-w-xs relative text-center" onclick="event.stopPropagation()">
-            <h3 class="font-semibold text-base mb-4 text-white">Message Info</h3>
-            <div class="space-y-2 text-sm text-gray-300 text-left bg-gray-900 p-3 rounded-lg border border-gray-800">
-                <p><strong>Status:</strong> <span id="info-status" class="text-indigo-400"></span></p>
-                <p><strong>Time:</strong> <span id="info-time" class="text-gray-400"></span></p>
+        <!-- RIGHT SLIDE-OVER OPTIONS PANEL -->
+        <div id="slide-panel" class="absolute top-0 right-0 w-80 h-full bg-[#0d0d12] border-l border-gray-800/80 z-30 transform translate-x-full flex flex-col shadow-2xl">
+            <div class="p-4 border-b border-gray-800 flex items-center justify-between bg-gray-950/50">
+                <h3 class="font-bold text-xs text-white uppercase tracking-wider">Chat Details</h3>
+                <button onclick="toggleSlidePanel()" class="w-7 h-7 rounded-lg bg-gray-900 text-gray-400 hover:text-white flex items-center justify-center text-xs">✕</button>
             </div>
-            <button onclick="closeMsgInfoModal()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs w-full font-semibold">Close</button>
+            <div class="p-5 flex flex-col items-center text-center border-b border-gray-800/60 bg-gray-950/20">
+                <div id="panel-avatar" class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-indigo-600 to-pink-600 flex items-center justify-center font-bold text-xl text-white shadow-xl mb-3">
+                    U
+                </div>
+                <h2 id="panel-username" class="font-bold text-sm text-white mb-1">username</h2>
+                <span id="panel-badge" class="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2.5 py-0.5 rounded-full font-medium">Vibely User</span>
+            </div>
+            <div class="p-4 space-y-2.5 flex-1 overflow-y-auto">
+                <a id="panel-view-profile" href="#" class="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800/80 text-xs text-gray-200 transition font-medium">
+                    <i class="fa-solid fa-user text-indigo-400 w-4"></i> View Profile
+                </a>
+                <button onclick="toggleBlockStatus()" id="panel-block-btn" class="w-full flex items-center gap-3 p-3 rounded-xl bg-gray-900/60 hover:bg-gray-800/80 border border-gray-800/80 text-xs text-amber-400 transition font-medium text-left">
+                    <i class="fa-solid fa-ban w-4"></i> <span id="block-btn-text">Block User</span>
+                </button>
+                <button onclick="deleteCurrentChat()" class="w-full flex items-center gap-3 p-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-xs text-red-400 transition font-medium text-left">
+                    <i class="fa-solid fa-trash-can w-4"></i> Delete Chat
+                </button>
+                <button id="panel-recover-btn" onclick="recoverCurrentChat()" class="hidden w-full flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-xs text-emerald-400 transition font-medium text-left">
+                    <i class="fa-solid fa-rotate-left w-4"></i> Recover Whole Chat (Verified)
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- JavaScript -->
+    <!-- JavaScript Actions -->
     <script>
         let activeReceiverId = null;
+        let activeReceiverUsername = null;
         let pollingInterval = null;
-        let editingMessageId = null; // Track message being edited
+        // Read verified status safely from body data attribute (No linter errors!)
+        let isUserVerified = document.body.getAttribute('data-verified') === '1';
 
         function toggleNewChatModal() {
-            const modal = document.getElementById('new-chat-modal');
-            modal.classList.toggle('hidden');
+            document.getElementById('new-chat-modal').classList.toggle('hidden');
+        }
+
+        function toggleSlidePanel() {
+            const panel = document.getElementById('slide-panel');
+            panel.classList.toggle('translate-x-full');
         }
 
         function filterChats() {
@@ -244,7 +282,7 @@
 
         function openChat(userId, username) {
             activeReceiverId = userId;
-            editingMessageId = null;
+            activeReceiverUsername = username;
             document.getElementById('message-input').value = '';
 
             if (window.innerWidth < 768) {
@@ -258,96 +296,83 @@
             document.getElementById('active-username').innerText = username;
             document.getElementById('active-user-avatar').innerText = username[0].toUpperCase();
 
-            document.querySelectorAll('.all-user-card').forEach(el => el.classList.remove('bg-gray-800/80'));
-            const activeCard = document.getElementById(`user-item-${userId}`);
-            if (activeCard) {
-                activeCard.classList.add('bg-gray-800/80');
+            // Populate Slide Panel info
+            document.getElementById('panel-username').innerText = username;
+            document.getElementById('panel-avatar').innerText = username[0].toUpperCase();
+            document.getElementById('panel-view-profile').href = `/app/${username}`;
+
+            // Show Recover Chat button only if current user is verified
+            if (isUserVerified) {
+                document.getElementById('panel-recover-btn').classList.remove('hidden');
             }
 
             fetchMessages();
-
             if (pollingInterval) clearInterval(pollingInterval);
-            pollingInterval = setInterval(fetchMessages, 1500);
+            pollingInterval = setInterval(fetchMessages, 2000);
         }
 
         function closeActiveChatMobile() {
             document.getElementById('chat-container').classList.remove('flex', 'w-full');
             document.getElementById('chat-container').classList.add('hidden');
             document.getElementById('sidebar-container').classList.remove('hidden');
-            document.getElementById('sidebar-container').classList.add('w-full');
             if (pollingInterval) clearInterval(pollingInterval);
         }
 
         function fetchMessages() {
             if (!activeReceiverId) return;
 
-            // Agar koi menu open hai toh polling ko skip karein taaki menu gayab na ho
-            if (document.querySelector('[id^="menu-"]:not(.hidden)')) {
-                return;
-            }
-
             fetch(`/api/messages/${activeReceiverId}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (document.querySelector('[id^="menu-"]:not(.hidden)')) return;
-
                     const box = document.getElementById('messages-box');
-                    const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 50;
+                    const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
+
+                    // Handle blocking states
+                    const banner = document.getElementById('blocked-banner');
+                    const inputContainer = document.getElementById('input-container');
+                    const blockBtnText = document.getElementById('block-btn-text');
+
+                    if (data.they_blocked_me) {
+                        banner.classList.remove('hidden');
+                        inputContainer.classList.add('hidden');
+                    } else {
+                        banner.classList.add('hidden');
+                        inputContainer.classList.remove('hidden');
+                    }
+
+                    if (data.i_blocked_them) {
+                        blockBtnText.innerText = 'Unblock User';
+                    } else {
+                        blockBtnText.innerText = 'Block User';
+                    }
 
                     box.innerHTML = '';
+                    // Correctly read 'messages' array from returned dictionary
+                    const msgs = data.messages || [];
 
-                    if (data.length === 0) {
-                        box.innerHTML = `<div class="m-auto text-center text-gray-500 text-sm">No chats yet. Say hello! 👋</div>`;
+                    if (msgs.length === 0) {
+                        box.innerHTML = `<div class="m-auto text-center text-gray-500 text-xs">No messages yet. Send a greeting! ✨</div>`;
                         return;
                     }
 
-                    data.forEach(msg => {
-                        // Strict check: Agar sender_id receiver ki ID nahi hai, tabhi yeh message "mera" hai
+                    msgs.forEach(msg => {
                         const isMe = String(msg.sender_id) !== String(activeReceiverId);
-                        const alignClass = isMe ? 'ml-auto bg-indigo-600 text-white' : 'mr-auto bg-gray-800 text-gray-200';
-
-                        // Format timestamp
+                        const alignClass = isMe 
+                            ? 'ml-auto bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-2xl rounded-tr-sm shadow-md' 
+                            : 'mr-auto bg-gray-900 border border-gray-800 text-gray-200 rounded-2xl rounded-tl-sm shadow';
+                        
                         const dateObj = new Date(msg.timestamp);
                         const timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                        // Seen indicator text
-                        const seenText = isMe ? (msg.is_seen ? 'Seen ✓✓' : 'Sent ✓') : '';
-
                         const div = document.createElement('div');
-                        div.className = `relative group msg-bubble max-w-[75%] md:max-w-[65%] px-4 py-2.5 rounded-2xl text-sm ${alignClass}`;
-                        
+                        div.className = `max-w-[75%] md:max-w-[65%] px-4 py-2.5 text-xs ${alignClass}`;
                         div.innerHTML = `
-                            <div class="break-words pr-6">${msg.message}</div>
-                            <div class="flex items-center justify-end gap-2 mt-1 text-[10px] opacity-80">
+                            <div class="break-words leading-relaxed">${msg.message}</div>
+                            <div class="flex items-center justify-end gap-1.5 mt-1 text-[9px] opacity-75">
                                 <span>${timeString}</span>
-                                ${isMe ? `<span>${seenText}</span>` : ''}
-                            </div>
-                            <!-- 3 Vertical Dot Menu Button -->
-                            <div class="absolute top-1 right-1 opacity-0 msg-options-btn transition cursor-pointer p-1">
-                                <button onclick="toggleMsgMenu(event, '${msg.id}')" class="text-white hover:text-gray-300 font-bold px-1.5 rounded bg-black/20">⋮</button>
-                                <!-- Dropdown Menu with Close (✕) Button -->
-                                <div id="menu-${msg.id}" onclick="event.stopPropagation()" class="hidden absolute right-0 mt-1 w-36 bg-[#1a1a24] border border-gray-700 rounded-lg shadow-xl z-30 overflow-hidden">
-                                    <div class="flex items-center justify-between px-3 py-1.5 border-b border-gray-800 bg-gray-900/50">
-                                        <span class="text-[10px] text-gray-400 font-semibold uppercase">Options</span>
-                                        <button onclick="closeMsgMenu('${msg.id}')" class="text-gray-400 hover:text-white text-xs font-bold px-1">✕</button>
-                                    </div>
-                                    <div class="divide-y divide-gray-800">
-                                        ${isMe ? `<button onclick="prepareEditMessage('${msg.id}', \`${msg.message.replace(/`/g, '\\`')}\`); closeMsgMenu('${msg.id}');" class="w-full text-left px-3 py-2 text-xs hover:bg-gray-800 text-gray-200 flex items-center gap-2">Edit</button>` : ''}
-                                        <button onclick="showMsgInfo('${timeString}', '${msg.is_seen}', '${isMe}'); closeMsgMenu('${msg.id}');" class="w-full text-left px-3 py-2 text-xs hover:bg-gray-800 text-gray-200 flex items-center gap-2">Info</button>
-                                        <button onclick="deleteMessageLocally('${msg.id}'); closeMsgMenu('${msg.id}');" class="w-full text-left px-3 py-2 text-xs hover:bg-red-500/20 text-red-400 flex items-center gap-2">Delete</button>
-                                    </div>
-                                </div>
+                                ${isMe ? `<span>${msg.is_seen ? '✓✓' : '✓'}</span>` : ''}
                             </div>
                         `;
-
-                        // Right-click support to toggle menu
-                        div.addEventListener('contextmenu', (e) => {
-                            e.preventDefault();
-                            document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
-                            const menu = document.getElementById(`menu-${msg.id}`);
-                            menu.classList.remove('hidden');
-                        });
-
                         box.appendChild(div);
                     });
 
@@ -357,212 +382,125 @@
                 });
         }
 
-        function toggleMsgMenu(e, msgId) {
-            e.stopPropagation();
-            document.querySelectorAll('[id^="menu-"]').forEach(m => {
-                if (m.id !== `menu-${msgId}`) m.classList.add('hidden');
-            });
-            const menu = document.getElementById(`menu-${msgId}`);
-            menu.classList.toggle('hidden');
-        }
-
-        function closeMsgMenu(msgId) {
-            const menu = document.getElementById(`menu-${msgId}`);
-            if (menu) {
-                menu.classList.add('hidden');
-            }
-        }
-
-        // Close dropdown menus on outside click
-        window.addEventListener('click', () => {
-            document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
-        });
-
-        function toggleMsgMenu(e, msgId) {
-            e.stopPropagation();
-            document.querySelectorAll('[id^="menu-"]').forEach(m => {
-                if (m.id !== `menu-${msgId}`) m.classList.add('hidden');
-            });
-            const menu = document.getElementById(`menu-${msgId}`);
-            menu.classList.toggle('hidden');
-        }
-
-        function prepareEditMessage(msgId, text) {
-            editingMessageId = msgId;
-            const input = document.getElementById('message-input');
-            input.value = text;
-            input.focus();
-            document.getElementById('send-btn').innerText = 'Update';
-        }
-
-        function showMsgInfo(timeString, isSeen, isMe) {
-            const statusSpan = document.getElementById('info-status');
-            const timeSpan = document.getElementById('info-time');
-            
-            if (isMe === 'true') {
-                statusSpan.innerText = isSeen === '1' ? 'Seen by recipient' : 'Sent, not seen yet';
-            } else {
-                statusSpan.innerText = 'Received';
-            }
-            timeSpan.innerText = timeString;
-            document.getElementById('msg-info-modal').classList.remove('hidden');
-        }
-
-        function closeMsgInfoModal() {
-            document.getElementById('msg-info-modal').classList.add('hidden');
-        }
-
-        function deleteMessageLocally(msgId) {
-            if (!confirm("Remove this message from your chat?")) return;
-
-            fetch('/api/message/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message_id: msgId })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    fetchMessages();
-                } else {
-                    alert('Failed to delete message.');
-                }
-            });
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const chatWithId = urlParams.get('chat_with');
-            const chatWithUsername = urlParams.get('username');
-
-            if (chatWithId && chatWithUsername) {
-                let userCard = document.getElementById(`user-item-${chatWithId}`);
-                if (!userCard) {
-                    const chatList = document.getElementById('chat-list');
-                    if (chatList && chatList.innerHTML.includes('No conversations yet')) {
-                        chatList.innerHTML = '';
-                    }
-                    const div = document.createElement('div');
-                    div.onclick = () => openChat(chatWithId, chatWithUsername);
-                    div.className = "all-user-card flex items-center justify-between p-3.5 hover:bg-gray-800/60 cursor-pointer transition";
-                    div.id = `user-item-${chatWithId}`;
-                    div.setAttribute('data-username', chatWithUsername.toLowerCase());
-                    div.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
-                                ${chatWithUsername[0].toUpperCase()}
-                            </div>
-                            <div>
-                                <h3 class="text-sm font-medium text-gray-200 truncate">${chatWithUsername}</h3>
-                            </div>
-                        </div>
-                        <span class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0">Message</span>
-                    `;
-                    if (chatList) chatList.prepend(div);
-                }
-                openChat(chatWithId, chatWithUsername);
-            }
-        });
-
-        // Periodically check messages and reorder chat list if new message arrives
-        function checkUnreadChats() {
-            if (!activeReceiverId) {
-                // Fetch inbox snippet or reload chat list dynamically if needed
-            }
-        }
-        setInterval(checkUnreadChats, 3000);
-
-        // Periodically fetch and update sidebar chat list in real-time
-        function updateChatListSidebar() {
-            fetch('/api/chat_list')
-                .then(res => res.json())
-                .then(chatUsers => {
-                    const chatListContainer = document.getElementById('chat-list');
-                    if (!chatListContainer) return;
-
-                    // Preserve scroll or state if needed, but rebuild sorted list
-                    let html = '';
-                    if (chatUsers.length > 0) {
-                        chatUsers.forEach(acc => {
-                            const hasUnread = acc.unread_count > 0;
-                            const activeClass = (activeReceiverId == acc.id) ? 'bg-gray-800/80' : (hasUnread ? 'bg-gray-900/80 border-l-4 border-indigo-500' : '');
-                            
-                            html += `
-                            <div onclick="openChat('${acc.id}', '${acc.username}')"
-                                class="all-user-card flex items-center justify-between p-3.5 hover:bg-gray-800/60 cursor-pointer transition ${activeClass}"
-                                data-username="${acc.username.toLowerCase()}" id="user-item-${acc.id}">
-                                <div class="flex items-center gap-3">
-                                    <div class="relative w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 flex items-center justify-center font-bold text-white text-sm shrink-0">
-                                        ${acc.username[0].toUpperCase()}
-                                        ${hasUnread ? '<span class="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full ring-2 ring-[#0b0b0f]"></span>' : ''}
-                                    </div>
-                                    <div>
-                                        <h3 class="text-sm font-medium ${hasUnread ? 'text-white font-bold' : 'text-gray-200'} flex items-center gap-1">
-                                            ${acc.username}
-                                            ${acc.verified ? '<img src="/static/assets/verified_badge.svg" class="w-3.5 h-3.5 inline" alt="Verified">' : ''}
-                                        </h3>
-                                    </div>
-                                </div>
-                                <span class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0">Message</span>
-                            </div>`;
-                        });
-                    } else {
-                        html = `
-                        <div class="p-6 text-center text-gray-500 text-sm mt-10">
-                            <p>No conversations yet.</p>
-                            <p class="text-xs text-indigo-400 mt-2 cursor-pointer" onclick="toggleNewChatModal()">Start a new chat +</p>
-                        </div>`;
-                    }
-                    
-                    // Only update innerHTML if search input is empty to avoid disrupting user search
-                    const searchVal = document.getElementById('chat-search').value;
-                    if (!searchVal) {
-                        chatListContainer.innerHTML = html;
-                    }
-                });
-        }
-
-        // Run chat list update every 2 seconds
-        setInterval(updateChatListSidebar, 2000);
-
         function handleMessageSubmit(e) {
             e.preventDefault();
             const input = document.getElementById('message-input');
             const text = input.value.trim();
             if (!text || !activeReceiverId) return;
 
-            if (editingMessageId) {
-                // Edit / Update Message Flow
-                fetch('/api/message/edit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message_id: editingMessageId, new_text: text })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        input.value = '';
-                        editingMessageId = null;
-                        document.getElementById('send-btn').innerText = 'Send';
-                        fetchMessages();
-                    }
-                });
-            } else {
-                // Normal Send Message Flow
-                fetch('/api/send', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ receiver_id: activeReceiverId, message: text })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        input.value = '';
-                        fetchMessages();
-                    }
-                });
-            }
+            fetch('/api/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ receiver_id: activeReceiverId, message: text })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    input.value = '';
+                    fetchMessages();
+                }
+            });
         }
+
+        // Slide panel action functions
+        function toggleBlockStatus() {
+            const blockBtnText = document.getElementById('block-btn-text').innerText;
+            const endpoint = blockBtnText.includes('Unblock') ? '/api/unblock_user' : '/api/block_user';
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: activeReceiverId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    toggleSlidePanel();
+                    fetchMessages();
+                } else {
+                    alert('Action failed.');
+                }
+            });
+        }
+
+        function deleteCurrentChat() {
+            if (!confirm("Are you sure you want to delete this chat? All messages will be hidden and the chat will vanish from your inbox.")) return;
+
+            fetch('/api/delete_chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: activeReceiverId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    toggleSlidePanel();
+                    location.reload();
+                } else {
+                    alert('Failed to delete chat.');
+                }
+            });
+        }
+
+        function recoverCurrentChat() {
+            if (!confirm("Recover past messages for this chat?")) return;
+
+            fetch('/api/recover_chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target_id: activeReceiverId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    toggleSlidePanel();
+                    fetchMessages();
+                } else {
+                    alert(data.message || 'Only verified accounts can recover chats.');
+                }
+            });
+        }
+
+        // Sidebar Chat List Real-time polling
+        setInterval(() => {
+            fetch('/api/chat_list')
+                .then(res => res.json())
+                .then(chatUsers => {
+                    const chatListContainer = document.getElementById('chat-list');
+                    if (!chatListContainer) return;
+
+                    let html = '';
+                    if (chatUsers.length > 0) {
+                        chatUsers.forEach(acc => {
+                            html += `
+                            <div onclick="openChat('${acc.id}', '${acc.username}')"
+                                class="all-user-card flex items-center justify-between p-3 rounded-xl hover:bg-gray-800/50 cursor-pointer transition mb-1 group"
+                                data-username="${acc.username.toLowerCase()}" id="user-item-${acc.id}">
+                                <div class="flex items-center gap-3">
+                                    <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center font-bold text-white text-sm shadow">
+                                        ${acc.username[0].toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-gray-200 group-hover:text-white flex items-center gap-1.5">
+                                            ${acc.username}
+                                            ${acc.verified ? '<img src="/static/assets/verified_badge.svg" class="w-3.5 h-3.5 inline" alt="Verified">' : ''}
+                                        </h3>
+                                        <p class="text-[11px] text-gray-400 truncate max-w-[160px]">Tap to open chat</p>
+                                    </div>
+                                </div>
+                            </div>`;
+                        });
+                    } else {
+                        html = `
+                        <div class="p-8 text-center text-gray-500 text-xs mt-10">
+                            <p class="font-medium text-gray-400">No conversations yet</p>
+                        </div>`;
+                    }
+                    if (!document.getElementById('chat-search').value) {
+                        chatListContainer.innerHTML = html;
+                    }
+                });
+        }, 3000);
     </script>
 </body>
 
