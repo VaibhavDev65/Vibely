@@ -3,6 +3,7 @@ import pymysql
 import pymysql.cursors
 from dotenv import load_dotenv
 import os
+from random import randrange
 
 load_dotenv()
 
