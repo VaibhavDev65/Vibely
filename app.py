@@ -47,10 +47,9 @@ mysql = PyMySQLWrapper(app)
 # Middleware / Before Request to check Session & Cookies
 @app.before_request
 def check_auth():
-    # Yahan 'send_otp' aur 'verify_otp' add karein taaki bina login ke OTP API access ho sake
-    allowed_routes = ['login', 'signup', 'send_otp', 'verify_otp', 'static']
+    # 'logout' ko allowed_routes mein add karein taaki loop na bane
+    allowed_routes = ['login', 'signup', 'send_otp', 'verify_otp', 'logout', 'static']
     if request.endpoint not in allowed_routes and 'user_id' not in session:
-        # Check if cookie exists for auto-login...
         cookie_user = request.cookies.get('vibely_session_id')
         if cookie_user:
             try:
@@ -63,7 +62,8 @@ def check_auth():
                     session['user_id'] = user['id']
                     session['username'] = user['username']
                 else:
-                    return redirect(url_for('logout'))
+                    # Agar user nahi mila toh seedha login par bhejein, logout par nahi
+                    return redirect(url_for('login'))
             except Exception:
                 return redirect(url_for('login'))
         else:
