@@ -1,14 +1,18 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response, g
-import pymysql
-import pymysql.cursors
+from models.mailModel import login_otp
 from dotenv import load_dotenv
-import os
 from random import randrange
+import pymysql.cursors
+import pymysql
+import os
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'vibely_super_secret_key_change_this'
+sender_email = os.getenv('EMAIL_SENDER')
+sender_password = os.getenv('EMAIL_PASSWORD')
+
 
 # Fixed PyMySQL Wrapper using Flask 'g' object (Persists connection per request so commit works!)
 class PyMySQLWrapper:
@@ -43,9 +47,10 @@ mysql = PyMySQLWrapper(app)
 # Middleware / Before Request to check Session & Cookies
 @app.before_request
 def check_auth():
-    allowed_routes = ['login', 'signup', 'static']
+    # Yahan 'send_otp' aur 'verify_otp' add karein taaki bina login ke OTP API access ho sake
+    allowed_routes = ['login', 'signup', 'send_otp', 'verify_otp', 'static']
     if request.endpoint not in allowed_routes and 'user_id' not in session:
-        # Check if cookie exists for auto-login
+        # Check if cookie exists for auto-login...
         cookie_user = request.cookies.get('vibely_session_id')
         if cookie_user:
             try:
@@ -55,8 +60,8 @@ def check_auth():
                 user = cursor.fetchone()
                 cursor.close()
                 if user:
-                    session['user_id'] = user['id']       # Integer format maintain karega
-                    session['username'] = user['username'] # Username bhi restore ho jayega
+                    session['user_id'] = user['id']
+                    session['username'] = user['username']
                 else:
                     return redirect(url_for('logout'))
             except Exception:
@@ -96,6 +101,99 @@ def login():
             
     return render_template('login.html')
 
+# API: Send OTP for Signup
+# API: Send OTP for Signup
+@app.route('/api/sendotp', methods=['POST'])
+def send_otp():
+    data = request.json
+    email = data.get('email')
+    
+    if not email:
+        return jsonify({"status": "error", "message": "Email is required"}), 400
+        
+    # .env se variables ko directly function ke andar fetch karein
+    sender_email = os.getenv('EMAIL_SENDER')
+    sender_password = os.getenv('EMAIL_PASSWORD')
+    
+    # Check karein ki .env mein credentials available hain ya nahi
+    if not sender_email or not sender_password:
+        return jsonify({"status": "error", "message": "Server error: Email credentials missing in .env file!"}), 500
+        
+    # Generate 6-digit OTP using randrange
+    otp = str(randrange(100000, 999999))
+    session['signup_otp'] = otp
+    session['signup_email'] = email
+    session['email_verified'] = False
+    
+    try:
+        login_otp(email, sender_email, sender_password, otp)
+        return jsonify({"status": "success", "message": "OTP sent successfully"})
+    except Exception as e:
+        print(f"SMTP Error: {str(e)}")
+        return jsonify({"status": "error", "message": f"SMTP Error: {str(e)}"}), 500
+
+# API: Verify OTP for Signup
+@app.route('/api/verifyotp', methods=['POST'])
+def verify_otp():
+    data = request.json
+    entered_otp = data.get('otp')
+    session_otp = session.get('signup_otp')
+    
+    if session_otp and str(entered_otp) == str(session_otp):
+        session['email_verified'] = True
+        return jsonify({"status": "success", "message": "OTP verified successfully"})
+    else:
+        return jsonify({"status": "error", "message": "Incorrect OTP. Please try again."})
+
+@app.route('/api/send_email_change_otp', methods=['POST'])
+def send_email_change_otp():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        
+    data = request.json
+    new_email = data.get('new_email')
+    
+    if not new_email:
+        return jsonify({"status": "error", "message": "New email is required"}), 400
+        
+    cursor = mysql.connection.cursor()
+    cursor.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+    user = cursor.fetchone()
+    cursor.close()
+    
+    if not user or not user['email']:
+        return jsonify({"status": "error", "message": "Old email not found"}), 404
+        
+    old_email = user['email']
+    
+    # Generate OTP
+    otp = str(randrange(100000, 999999))
+    session['email_change_otp'] = otp
+    session['pending_new_email'] = new_email
+    
+    sender_email = os.getenv('EMAIL_SENDER')
+    sender_password = os.getenv('EMAIL_PASSWORD')
+    
+    try:
+        # Send OTP to OLD email address for security
+        login_otp(old_email, sender_email, sender_password, otp)
+        return jsonify({"status": "success", "message": "OTP sent to your old email successfully"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/verify_email_change_otp', methods=['POST'])
+def verify_email_change_otp():
+    data = request.json
+    entered_otp = data.get('otp')
+    session_otp = session.get('email_change_otp')
+    
+    if session_otp and str(entered_otp) == str(session_otp):
+        session['email_change_verified'] = True
+        return jsonify({"status": "success", "message": "OTP verified successfully"})
+    else:
+        return jsonify({"status": "error", "message": "Incorrect OTP. Please try again."})
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'GET':
@@ -106,23 +204,28 @@ def signup():
     password = request.form['password']
     gender = request.form.get('gender', 'others')
     
+    # Check if email is verified
+    if not session.get('email_verified') or session.get('signup_email') != email:
+        return render_template('login.html', error="Please verify your email with OTP first!")
+    
     try:
         cursor = mysql.connection.cursor()
         cursor.execute("INSERT INTO users (username, email, password, gender) VALUES (%s, %s, %s, %s)", 
                        (username, email, password, gender))
         mysql.connection.commit()
         
-        # Newly created user ka ID fetch karein auto-login ke liye
         user_id = cursor.lastrowid
         cursor.close()
         
-        # Session set karein
+        # Clear session OTP flags after successful signup
+        session.pop('signup_otp', None)
+        session.pop('email_verified', None)
+        
         session['user_id'] = user_id
         session['username'] = username
         
-        # Cookie set karke seedha home page par redirect karein (Auto Login)
         resp = make_response(redirect(url_for('home')))
-        resp.set_cookie('vibely_session_id', str(user_id), max_age=60*60*24*7) # 7 days
+        resp.set_cookie('vibely_session_id', str(user_id), max_age=60*60*24*7)
         return resp
         
     except Exception as e:
@@ -658,7 +761,16 @@ def update_profile():
     bio = data.get('bio', '')
     dob = data.get('dob') or None
     gender = data.get('gender', 'others')
-    is_private = 1 if data.get('is_private') else 0
+    
+    # Agar data mein is_private aaya hai toh wo use karein, nahi toh database se purani value lein
+    if 'is_private' in data:
+        is_private = 1 if data.get('is_private') else 0
+    else:
+        cursor = mysql.connection.cursor()
+        cursor.execute("SELECT is_private FROM users WHERE id = %s", (user_id,))
+        res = cursor.fetchone()
+        cursor.close()
+        is_private = res['is_private'] if res else 0
     
     cursor = mysql.connection.cursor()
     try:
