@@ -1,19 +1,13 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import requests
 
-def login_otp(receiver_email, EMAIL_SENDER, EMAIL_PASSWORD, otp):
-    sender_email = EMAIL_SENDER
-    sender_password = EMAIL_PASSWORD  # Gmail App Password use karein
+def login_otp(receiver_email, sender_email, api_key, otp):
+    url = "https://api.resend.com/emails"
     
-    # Message container setup
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Your Verification Code (OTP)"
-    msg["From"] = sender_email
-    msg["To"] = receiver_email
-    otp_code = otp  # Use the provided OTP instead of generating a new one
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
     
-    # Professional HTML & Inline CSS Design
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -43,7 +37,7 @@ def login_otp(receiver_email, EMAIL_SENDER, EMAIL_PASSWORD, otp):
         <!-- OTP Highlight Box with Linear Gradient -->
         <div style="text-align: center; margin: 35px 0;">
           <div style="display: inline-block; background: linear-gradient(135deg, #ff416c 0%, #8a2387 50%, #7a00cc 100%); padding: 16px 36px; border-radius: 12px; box-shadow: 0 6px 20px rgba(138, 35, 135, 0.3);">
-            <span style="font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: 8px; font-family: monospace;">{otp_code}</span>
+            <span style="font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: 8px; font-family: monospace;">{otp}</span>
           </div>
         </div>
         
@@ -57,28 +51,20 @@ def login_otp(receiver_email, EMAIL_SENDER, EMAIL_PASSWORD, otp):
     </html>
     """
     
-    # Attach HTML content to message
-    msg.attach(MIMEText(html_content, "html"))
+    payload = {
+        "from": "Vibely <onboarding@resend.dev>",
+        "to": [receiver_email],
+        "subject": "Your Verification Code (OTP)",
+        "html": html_content
+    }
     
-    # Connect to SMTP Server and Send Mail with exception raising
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, receiver_email, msg.as_string())
-        print("OTP Email sent successfully!")
-        return otp_code  
-    
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200 or response.status_code == 201:
+            print("OTP Email sent successfully via Resend API!")
+            return otp
+        else:
+            raise Exception(f"Resend API Error: {response.text}")
     except Exception as e:
         print(f"Error sending email: {e}")
-        raise e  # Flask server ko exact error pass karne ke liye exception raise karein
-
-if __name__ == "__main__":
-    receiver_email = "as0883443@gmail.com"
-    EMAIL_SENDER = "vibelysupport01@gmail.com"
-    EMAIL_PASSWORD = "acvjueykucidlcut"
-    otp = "123456"
-    try:
-        login_otp(receiver_email, EMAIL_SENDER, EMAIL_PASSWORD, otp)
-    except Exception as e:
-        print(f"Test execution failed: {e}")
+        raise e
