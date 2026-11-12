@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response, g
-from models.mailModel import login_otp
 from dotenv import load_dotenv
-from random import randrange
 import pymysql.cursors
 import pymysql
 import os
@@ -10,9 +8,6 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'vibely_super_secret_key_change_this'
-sender_email = os.getenv('EMAIL_SENDER')
-sender_password = os.getenv('EMAIL_PASSWORD')
-
 
 # Fixed PyMySQL Wrapper using Flask 'g' object (Persists connection per request so commit works!)
 class PyMySQLWrapper:
@@ -47,8 +42,7 @@ mysql = PyMySQLWrapper(app)
 # Middleware / Before Request to check Session & Cookies
 @app.before_request
 def check_auth():
-    # 'logout' ko allowed_routes mein add karein taaki loop na bane
-    allowed_routes = ['login', 'signup', 'send_otp', 'verify_otp', 'logout', 'static']
+    allowed_routes = ['login', 'signup', 'logout', 'static']
     if request.endpoint not in allowed_routes and 'user_id' not in session:
         cookie_user = request.cookies.get('vibely_session_id')
         if cookie_user:
@@ -62,7 +56,6 @@ def check_auth():
                     session['user_id'] = user['id']
                     session['username'] = user['username']
                 else:
-                    # Agar user nahi mila toh seedha login par bhejein, logout par nahi
                     return redirect(url_for('login'))
             except Exception:
                 return redirect(url_for('login'))
@@ -87,112 +80,17 @@ def login():
         user = cursor.fetchone()
         cursor.close()
         
-        # Raw text password check
         if user and user['password'] == password:
             session['user_id'] = user['id']
             session['username'] = user['username']
             
-            # Set Cookie for persistent login & redirect to home
             resp = make_response(redirect(url_for('home')))
-            resp.set_cookie('vibely_session_id', str(user['id']), max_age=60*60*24*7) # 7 days
+            resp.set_cookie('vibely_session_id', str(user['id']), max_age=60*60*24*7)
             return resp
         else:
             return render_template('login.html', error="Invalid credentials!")
             
     return render_template('login.html')
-
-# API: Send OTP for Signup
-# API: Send OTP for Signup
-@app.route('/api/sendotp', methods=['POST'])
-def send_otp():
-    data = request.json
-    email = data.get('email')
-    
-    if not email:
-        return jsonify({"status": "error", "message": "Email is required"}), 400
-        
-    # .env se variables ko directly function ke andar fetch karein
-    sender_email = os.getenv('EMAIL_SENDER')
-    sender_password = os.getenv('EMAIL_PASSWORD')
-    
-    # Check karein ki .env mein credentials available hain ya nahi
-    if not sender_email or not sender_password:
-        return jsonify({"status": "error", "message": "Server error: Email credentials missing in .env file!"}), 500
-        
-    # Generate 6-digit OTP using randrange
-    otp = str(randrange(100000, 999999))
-    session['signup_otp'] = otp
-    session['signup_email'] = email
-    session['email_verified'] = False
-    
-    try:
-        login_otp(email, sender_email, sender_password, otp)
-        return jsonify({"status": "success", "message": "OTP sent successfully"})
-    except Exception as e:
-        print(f"SMTP Error: {str(e)}")
-        return jsonify({"status": "error", "message": f"SMTP Error: {str(e)}"}), 500
-
-# API: Verify OTP for Signup
-@app.route('/api/verifyotp', methods=['POST'])
-def verify_otp():
-    data = request.json
-    entered_otp = data.get('otp')
-    session_otp = session.get('signup_otp')
-    
-    if session_otp and str(entered_otp) == str(session_otp):
-        session['email_verified'] = True
-        return jsonify({"status": "success", "message": "OTP verified successfully"})
-    else:
-        return jsonify({"status": "error", "message": "Incorrect OTP. Please try again."})
-
-@app.route('/api/send_email_change_otp', methods=['POST'])
-def send_email_change_otp():
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({"status": "error", "message": "Unauthorized"}), 401
-        
-    data = request.json
-    new_email = data.get('new_email')
-    
-    if not new_email:
-        return jsonify({"status": "error", "message": "New email is required"}), 400
-        
-    cursor = mysql.connection.cursor()
-    cursor.execute("SELECT email FROM users WHERE id = %s", (user_id,))
-    user = cursor.fetchone()
-    cursor.close()
-    
-    if not user or not user['email']:
-        return jsonify({"status": "error", "message": "Old email not found"}), 404
-        
-    old_email = user['email']
-    
-    # Generate OTP
-    otp = str(randrange(100000, 999999))
-    session['email_change_otp'] = otp
-    session['pending_new_email'] = new_email
-    
-    sender_email = os.getenv('EMAIL_SENDER')
-    sender_password = os.getenv('EMAIL_PASSWORD')
-    
-    try:
-        # Send OTP to OLD email address for security
-        login_otp(old_email, sender_email, sender_password, otp)
-        return jsonify({"status": "success", "message": "OTP sent to your old email successfully"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/verify_email_change_otp', methods=['POST'])
-def verify_email_change_otp():
-    data = request.json
-    entered_otp = data.get('otp')
-    session_otp = session.get('email_change_otp')
-    
-    if session_otp and str(entered_otp) == str(session_otp):
-        session['email_change_verified'] = True
-        return jsonify({"status": "success", "message": "OTP verified successfully"})
-    else:
-        return jsonify({"status": "error", "message": "Incorrect OTP. Please try again."})
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -204,22 +102,21 @@ def signup():
     password = request.form['password']
     gender = request.form.get('gender', 'others')
     
-    # Check if email is verified
-    if not session.get('email_verified') or session.get('signup_email') != email:
-        return render_template('login.html', error="Please verify your email with OTP first!")
-    
     try:
         cursor = mysql.connection.cursor()
+        
+        # Check if username or email already exists
+        cursor.execute("SELECT id FROM users WHERE username = %s OR email = %s", (username, email))
+        if cursor.fetchone():
+            cursor.close()
+            return render_template('login.html', error="Username or Email already taken!")
+
         cursor.execute("INSERT INTO users (username, email, password, gender) VALUES (%s, %s, %s, %s)", 
                        (username, email, password, gender))
         mysql.connection.commit()
         
         user_id = cursor.lastrowid
         cursor.close()
-        
-        # Clear session OTP flags after successful signup
-        session.pop('signup_otp', None)
-        session.pop('email_verified', None)
         
         session['user_id'] = user_id
         session['username'] = username
@@ -259,7 +156,6 @@ def chat_dashboard():
     cursor.execute("SELECT id, username FROM users WHERE id != %s", (user_id,))
     all_users = cursor.fetchall()
     
-    # Select all columns so verified status is available
     cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
     current_user = cursor.fetchone()
     cursor.close()
@@ -267,7 +163,6 @@ def chat_dashboard():
     return render_template('chat.html', chat_users=chat_users, all_users=all_users, current_user=current_user)
 
 def check_privacy(val):
-    """Safely evaluates MySQL tinyint, int, bool, or bytes (b'\\x00' / b'\\x01')"""
     if isinstance(val, bytes):
         return int(val[0]) if len(val) > 0 else 0
     return int(val) if val else 0
@@ -289,7 +184,6 @@ def home():
         session.clear()
         return redirect(url_for('login'))
     
-    # Active stories
     cursor.execute("""
         SELECT s.*, u.username, u.verified 
         FROM stories s 
@@ -299,7 +193,6 @@ def home():
     """)
     stories = cursor.fetchall()
     
-    # Initial 10 Random Posts (Excluding private accounts unless followed or own posts)[cite: 10]
     cursor.execute("""
         SELECT p.*, u.username, u.verified, 
                (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count
@@ -310,7 +203,6 @@ def home():
     """, (user_id, user_id))
     posts = cursor.fetchall()
     
-    # Random Suggested Users (Max 5, excluding current user and already followed)
     cursor.execute("""
         SELECT id, username, verified FROM users 
         WHERE id != %s AND id NOT IN (SELECT following_id FROM followings WHERE my_id = %s)
@@ -328,7 +220,6 @@ def get_random_posts():
         return jsonify({"status": "error", "message": "Unauthorized"}), 401
     cursor = mysql.connection.cursor()
     try:
-        # Privacy check applied to random feed posts[cite: 10]
         cursor.execute("""
             SELECT p.*, u.username, u.verified, 
                    (SELECT COUNT(*) FROM likes WHERE post_id = p.id) as like_count
@@ -394,17 +285,14 @@ def follow_user():
     
     cursor = mysql.connection.cursor()
     try:
-        # Check if already following
         cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, target_id))
         existing_follow = cursor.fetchone()
         
         if existing_follow:
-            # Unfollow: Delete entries from followings and followers
             cursor.execute("DELETE FROM followings WHERE my_id = %s AND following_id = %s", (my_id, target_id))
             cursor.execute("DELETE FROM followers WHERE user_id = %s AND followed_by_id = %s", (target_id, my_id))
             action = "unfollowed"
         else:
-            # Follow: Insert entries into followings and followers
             cursor.execute("INSERT IGNORE INTO followings (my_id, following_id) VALUES (%s, %s)", (my_id, target_id))
             cursor.execute("INSERT IGNORE INTO followers (user_id, followed_by_id) VALUES (%s, %s)", (target_id, my_id))
             action = "followed"
@@ -430,7 +318,6 @@ def get_messages(receiver_id):
     sender_id = session['user_id']
     cursor = mysql.connection.cursor()
     
-    # Check block statuses
     cursor.execute("SELECT * FROM blocked_accounts WHERE (blocker_id = %s AND blocked_id = %s) OR (blocker_id = %s AND blocked_id = %s)", 
                    (sender_id, receiver_id, receiver_id, sender_id))
     blocks = cursor.fetchall()
@@ -438,7 +325,6 @@ def get_messages(receiver_id):
     i_blocked_them = any(b['blocker_id'] == sender_id for b in blocks)
     they_blocked_me = any(b['blocker_id'] == receiver_id for b in blocks)
     
-    # Mark incoming messages as seen
     cursor.execute("""
         UPDATE messages 
         SET is_seen = 1 
@@ -446,7 +332,6 @@ def get_messages(receiver_id):
     """, (receiver_id, sender_id))
     mysql.connection.commit()
 
-    # Fetch active non-deleted messages
     cursor.execute("""
         SELECT * FROM messages 
         WHERE ((sender_id = %s AND receiver_id = %s) OR (sender_id = %s AND receiver_id = %s))
@@ -455,21 +340,17 @@ def get_messages(receiver_id):
     """, (sender_id, receiver_id, receiver_id, sender_id))
     messages = cursor.fetchall()
     
-    # Fetch recipient details including verified status & handle
     cursor.execute("SELECT id, username, verified, name FROM users WHERE id = %s", (receiver_id,))
     recipient = cursor.fetchone()
-    
     cursor.close()
     
     return jsonify({
         "messages": messages,
         "i_blocked_them": i_blocked_them,
         "they_blocked_me": they_blocked_me,
-        "recipient": recipient,
-        "current_user_verified": session.get('user_verified', False) # ya user query se
+        "recipient": recipient
     })
 
-# API: Edit Message
 @app.route('/api/message/edit', methods=['POST'])
 def edit_message():
     data = request.json
@@ -487,8 +368,6 @@ def edit_message():
         cursor.close()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# API: Local Delete Message (Sets delete_status = 1)
-# API: Delete Message (Sets deleted = 1 as requested)
 @app.route('/api/message/delete', methods=['POST'])
 def delete_message():
     data = request.json
@@ -555,18 +434,14 @@ def profile(username):
     is_following = False
     they_follow_me = False
     if not is_my_profile and my_id:
-        # Check if we follow them (button state ke liye)
         cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (my_id, profile_user['id']))
         is_following = cursor.fetchone() is not None
         
-        # Check if they follow us (Am I in their following list? -> my_id = profile_user['id'], following_id = my_id)
         cursor.execute("SELECT * FROM followings WHERE my_id = %s AND following_id = %s", (profile_user['id'], my_id))
         they_follow_me = cursor.fetchone() is not None
 
     account_is_private = check_privacy(profile_user.get('is_private'))
 
-    # PRIVACY CHECK: Agar account private hai aur apni profile nahi hai, 
-    # toh tabhi dikhega jab wo humein follow karte hon (they_follow_me)
     can_view = True
     if account_is_private and not is_my_profile:
         can_view = they_follow_me
@@ -596,7 +471,6 @@ def profile(username):
                            is_following=is_following,
                            they_follow_me=they_follow_me,
                            can_view=can_view)
-
 
 @app.route('/api/followers/<int:user_id>')
 def get_followers(user_id):
@@ -629,7 +503,6 @@ def get_followers(user_id):
     users = cursor.fetchall()
     cursor.close()
     return jsonify(users)
-
 
 @app.route('/api/followings/<int:user_id>')
 def get_followings(user_id):
@@ -747,7 +620,6 @@ def view_post(post_id):
         
     return render_template('single_post.html', post=post, comments=comments, current_user=current_user)
 
-
 @app.route('/api/update_profile', methods=['POST'])
 def update_profile():
     data = request.json
@@ -762,7 +634,6 @@ def update_profile():
     dob = data.get('dob') or None
     gender = data.get('gender', 'others')
     
-    # Agar data mein is_private aaya hai toh wo use karein, nahi toh database se purani value lein
     if 'is_private' in data:
         is_private = 1 if data.get('is_private') else 0
     else:
@@ -845,7 +716,6 @@ def delete_chat():
         
     cursor = mysql.connection.cursor()
     try:
-        # Set deleted = 1 for all messages between these users
         cursor.execute("""
             UPDATE messages 
             SET deleted = 1 
@@ -868,7 +738,6 @@ def recover_chat():
         
     cursor = mysql.connection.cursor()
     try:
-        # Verify if user is verified
         cursor.execute("SELECT verified FROM users WHERE id = %s", (my_id,))
         user = cursor.fetchone()
         
@@ -876,7 +745,6 @@ def recover_chat():
             cursor.close()
             return jsonify({"status": "error", "message": "Only verified users can recover chats!"}), 403
             
-        # Set deleted = 0 back
         cursor.execute("""
             UPDATE messages 
             SET deleted = 0 
@@ -895,7 +763,6 @@ def api_chat_list():
     if not user_id:
         return jsonify([])
     cursor = mysql.connection.cursor()
-    # Only list chats where there is at least one non-deleted message
     cursor.execute("""
         SELECT u.id, u.username, u.verified, u.name,
                MAX(m.timestamp) as last_time,
